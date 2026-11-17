@@ -39,6 +39,9 @@ jobs:
       - name: Generate Android project without premature dependency resolution
         run: flutter create --no-pub --platforms=android --project-name reach_network --org app.reachnetwork .
 
+      - name: Remove Flutter's generic template test
+        run: rm -f test/widget_test.dart
+
       - name: Apply Reach Android configuration and logo
         run: python3 tools/prepare_android.py
 
