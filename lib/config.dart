@@ -2,7 +2,7 @@
 class AppConfig {
   static const url = String.fromEnvironment('SUPABASE_URL');
   static const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
-  static const ready = url.startsWith('https://') && key.isNotEmpty;
+  static bool get ready => url.startsWith('https://') && key.isNotEmpty;
   static const callback = 'reachnetwork://auth-callback';
   static const appName = 'Reach';
   static const legalBase = String.fromEnvironment('LEGAL_BASE_URL');
