@@ -1,0 +1,3 @@
+project_id = "reach-network"
+[functions.send-push]
+verify_jwt = false # Receiver validates x-reach-hook secret. Never expose service role to clients.

@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reach — Delete your account</title><style>
+body{font:16px/1.55 system-ui,Arial,sans-serif;background:#f7f8fe;color:#191925;padding:28px}
+main{max-width:570px;margin:40px auto;background:white;padding:32px;border-radius:20px;box-shadow:0 12px 45px #16164712}
+input,button{padding:12px;font:inherit;border-radius:9px;box-sizing:border-box;margin:8px 0;width:100%}input{border:1px solid #aaa}
+button{background:#6159e9;color:white;border:0;cursor:pointer}button:disabled{opacity:.5}label{display:block;margin-top:13px}
+small{color:#555}a{color:#534bcc}#status{white-space:pre-wrap}
+</style></head><body><main><h1>Reach — Delete your account</h1>
+<p>Delete your Reach account and associated profile, availability posts, circles, connection requests and chat messages. This is irreversible. You can also use Reach → Me → Delete my account.</p>
+<p>Use the account's login credentials to authenticate this request. Do not enter a password on an untrusted domain. Google sign-in is supported if enabled by the operator.</p>
+<form id="login"><label>Email<input id="email" type="email" autocomplete="email" required></label>
+<label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+<button type="submit">Sign in to request deletion</button></form>
+<button id="google" type="button">Continue with Google</button>
+<section id="confirm" hidden><p><strong>Signed in.</strong> To delete your account and connected data, type DELETE below.</p>
+<label>Confirmation<input id="phrase" autocomplete="off" placeholder="DELETE"></label>
+<button id="delete" type="button">Permanently delete account</button></section>
+<p role="status" id="status"></p><hr><small>Need help? Contact <a id="support">operator support</a>. See <a href="privacy.html">Privacy policy</a> and <a href="terms.html">Community rules</a>.</small></main>
+<script src="config.js"></script><script type="module">
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
+const cfg=window.REACH_PUBLIC_CONFIG, status=document.getElementById('status');
+if(!cfg||cfg.supabaseUrl.includes('YOUR_PROJECT')||cfg.supabasePublishableKey.includes('YOUR_PUBLIC')){
+ status.textContent='This page has not yet been configured by the Reach operator.';
+ document.querySelectorAll('button').forEach(b=>b.disabled=true);
+}else{
+ const supabase=createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{auth:{flowType:'pkce',detectSessionInUrl:true}});
+ const show=async()=>{const {data:{session}}=await supabase.auth.getSession();document.getElementById('login').hidden=!!session;
+  document.getElementById('google').hidden=!!session;document.getElementById('confirm').hidden=!session;};
+ document.getElementById('login').addEventListener('submit',async e=>{e.preventDefault();
+ const {error}=await supabase.auth.signInWithPassword({email:document.getElementById('email').value,
+ password:document.getElementById('password').value});status.textContent=error?error.message:'Signed in.';await show();});
+ document.getElementById('google').addEventListener('click',async()=>{
+ const {error}=await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}});
+ if(error)status.textContent=error.message;});
+ document.getElementById('delete').addEventListener('click',async()=>{
+ if(document.getElementById('phrase').value!=='DELETE'){status.textContent='Type DELETE to confirm.';return;}
+ if(!confirm('Permanently erase this Reach account and its related data?'))return;
+ const {error}=await supabase.rpc('delete_my_account');
+ if(error){status.textContent='Deletion failed: '+error.message;return;}
+ await supabase.auth.signOut();status.textContent='Account deletion completed.';document.getElementById('confirm').hidden=true;
+ });
+ await show();
+}
+if(cfg?.supportEmail&&!cfg.supportEmail.includes('REPLACE'))document.getElementById('support').href='mailto:'+cfg.supportEmail;
+</script></body></html>
