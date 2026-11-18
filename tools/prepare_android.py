@@ -16,8 +16,7 @@ ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
 A='{http://schemas.android.com/apk/res/android}'
 tree=ET.parse(manifest)
 doc=tree.getroot()
-for p in ('android.permission.INTERNET', 'android.permission.ACCESS_COARSE_LOCATION',
-          'android.permission.ACCESS_FINE_LOCATION'):
+for p in ('android.permission.INTERNET', 'android.permission.ACCESS_COARSE_LOCATION'):
     if not any(x.get(A+'name') == p for x in doc.findall('uses-permission')):
         el=ET.Element('uses-permission')
         el.set(A+'name',p)
@@ -72,6 +71,40 @@ if os.environ.get('REACH_ENABLE_CALLS') == '1':
             el.set(A+'name',feature)
             el.set(A+'required','false')
             doc.insert(0,el)
+# Strip library-added permissions for product features intentionally disabled
+# in the default Play build. Keep only foreground COARSE location for optional
+# approximate discovery. Android's high-priority manifest merge markers suppress
+# permissions declared by Firebase Messaging, WebRTC and related libraries.
+# If push/calling is explicitly enabled later, regenerate and re-audit the AAB.
+ET.register_namespace('tools', 'http://schemas.android.com/tools')
+T='{http://schemas.android.com/tools}'
+remove_permissions={'android.permission.ACCESS_FINE_LOCATION'}
+if os.environ.get('REACH_ENABLE_PUSH') != '1':
+    remove_permissions.update({
+        'android.permission.POST_NOTIFICATIONS',
+        'android.permission.WAKE_LOCK',
+        'com.google.android.c2dm.permission.RECEIVE',
+    })
+    for name in ('firebase_messaging_auto_init_enabled',
+                 'firebase_data_collection_default_enabled'):
+        if not any(e.tag == 'meta-data' and e.get(A+'name') == name
+                   for e in app.findall('meta-data')):
+            meta=ET.SubElement(app,'meta-data')
+            meta.set(A+'name',name)
+            meta.set(A+'value','false')
+if os.environ.get('REACH_ENABLE_CALLS') != '1':
+    remove_permissions.update({
+        'android.permission.BLUETOOTH',
+        'android.permission.MODIFY_AUDIO_SETTINGS',
+    })
+for name in sorted(remove_permissions):
+    for existing in list(doc.findall('uses-permission')):
+        if existing.get(A+'name') == name:
+            doc.remove(existing)
+    rule=ET.SubElement(doc,'uses-permission')
+    rule.set(A+'name',name)
+    rule.set(T+'node','remove')
+
 tree.write(manifest,encoding='utf-8',xml_declaration=True)
 if os.environ.get('REACH_SIGNING_ENABLED') == '1':
     props_file=android/'key.properties'
