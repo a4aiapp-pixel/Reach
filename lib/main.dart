@@ -391,8 +391,7 @@ class _DiscoverPageState extends State<DiscoverPage>{
       crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text('Reach',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w900)),
         Text('Good things happen when we connect',style:Theme.of(context).textTheme.bodySmall)])),
-      if(AppConfig.aiEnabled)
-        IconButton(tooltip:'Reach Assist AI',onPressed:()=>Navigator.push(context,
+      IconButton(tooltip:'Reach Assist · free local tools',onPressed:()=>Navigator.push(context,
           MaterialPageRoute(builder:(_)=>const ReachAssistPage())),
           icon:const Icon(Icons.auto_awesome)),
       IconButton(tooltip:'Refresh',onPressed:refresh,icon:const Icon(Icons.refresh_rounded))]),gap(20),
@@ -865,11 +864,10 @@ class ProfilePage extends StatelessWidget {
          underline:const SizedBox.shrink(),value:themeMode,
          items:ThemeMode.values.map((e)=>DropdownMenuItem(value:e,child:Text(e.name))).toList(),
          onChanged:(v){if(v!=null)onTheme(v);}),),
-     if(AppConfig.aiEnabled)
-       ListTile(
+     ListTile(
          leading:const Icon(Icons.auto_awesome),
-         title:const Text('Reach Assist · AI'),
-         subtitle:const Text('Private AI help, translation, drafting and safety tips'),
+         title:const Text('Reach Assist · Free'),
+         subtitle:const Text('Offline writing, safety and community tools · no AI charges'),
          trailing:const Icon(Icons.chevron_right),
          onTap:()=>Navigator.push(context,
            MaterialPageRoute(builder:(_)=>const ReachAssistPage()))),
