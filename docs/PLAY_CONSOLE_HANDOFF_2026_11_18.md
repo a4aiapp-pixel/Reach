@@ -6,7 +6,7 @@
 
 - Display name: **Reach – Community Help**
 - Package/applicationId expected from Flutter generator: `app.reachnetwork.reach_network` (verify from the generated signed AAB/Play Console).
-- Launch version: `1.0.3` / versionCode `4`; later updates MUST increment versionCode and reuse the persistent upload key.
+- Launch version: `1.0.4` / versionCode `5`; later updates MUST increment versionCode and reuse the persistent upload key.
 - Android target: API 36 (Android 16).
 - Category: Social (community help); 18+ self-declared eligibility, not dating or matchmaking.
 - Primary language: English. In-app English/Urdu phrases are limited prewritten utilities, not full translation.
@@ -69,3 +69,5 @@ GitHub Actions `.github/workflows/reach-apks.yml` compiles a universal release-m
 For download use the individual artifacts shown in the latest successful workflow: https://github.com/a4aiapp-pixel/Reach/actions. Repository is private, so GitHub login may be required.
 
 **Not yet done**: Google Play registration/submission, signed-AAB Play validation, contact identity, real device QA, confirmation of Auth URL settings and ongoing human moderation. Signed compilation is not Play approval.
+
+**Approved Play icon:** The three connected-person figures in a location pin supported by a hand. Download its versioned 512×512 PNG from the corresponding successful GitHub Actions v1.0.4 branding artifact. App name remains **Reach**.
