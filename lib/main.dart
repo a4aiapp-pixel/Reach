@@ -18,6 +18,7 @@ import 'reach_call_preferences.dart';
 import 'reach_assist.dart';
 import 'reach_legal_sheet.dart';
 import 'community_catalog.dart';
+import 'reach_location_fields.dart';
 
 late final ReachRepository reach;
 // Categories and starter group templates are centralized in community_catalog.dart.
@@ -345,8 +346,8 @@ class _ProfileSetupState extends State<ProfileSetup>{
    const ReachMark(),gap(20),Text('Make Reach yours',style:Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight:FontWeight.bold)),
    const Text('Your city and country help discover relevant offers. You can use Reach without GPS.'),gap(20),
    TextField(controller:name,textCapitalization:TextCapitalization.words,decoration:const InputDecoration(labelText:'Display name (optional)')),
-   gap(12),TextField(controller:city,textCapitalization:TextCapitalization.words,decoration:const InputDecoration(labelText:'City *')),
-   gap(12),TextField(controller:country,textCapitalization:TextCapitalization.words,decoration:const InputDecoration(labelText:'Country *')),
+   gap(12),ReachCityField(controller:city,country:country),
+   gap(12),ReachCountryField(controller:country),
    gap(12),CheckboxListTile(value:agree,onChanged:(v)=>setState(()=>agree=v??false),
      title:const Text('I am 18 or older and accept the community rules and privacy policy.'),
      subtitle:const Text('No harassment, fraud, unsafe requests, unwanted contacts, or impersonation.')),
@@ -1236,10 +1237,8 @@ class _EditProfilePageState extends State<EditProfilePage>{
         decoration:const InputDecoration(labelText:'Skills or credentials (self-declared)',
           hintText:'Excel, plumbing, mathematics, design')),
       gap(10),
-      TextField(controller:city,maxLength:100,textCapitalization:TextCapitalization.words,
-        decoration:const InputDecoration(labelText:'City')),
-      TextField(controller:country,maxLength:100,textCapitalization:TextCapitalization.words,
-        decoration:const InputDecoration(labelText:'Country')),
+      ReachCityField(controller:city,country:country),
+      ReachCountryField(controller:country),
       gap(18),
       FilledButton(onPressed:saving?null:() async{
         final handle=username.text.trim().toLowerCase();
