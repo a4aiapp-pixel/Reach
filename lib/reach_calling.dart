@@ -152,7 +152,7 @@ class _ReachCallScreenState extends State<ReachCallScreen>
   MediaStream? media;
   Timer? ringTimer;
   Timer? connectionTimer;
-  Timer? statsTimer,reconnectTimer,disconnectTimer;
+  Timer? statsTimer,reconnectTimer,disconnectTimer,heartbeatTimer;
   final ReachCallPrefs prefs=ReachCallPrefs();
   ReachLinkGrade linkGrade=ReachLinkGrade.unknown;
   ReachVideoPlan? lastVideoPlan;
@@ -164,6 +164,7 @@ class _ReachCallScreenState extends State<ReachCallScreen>
   bool prepared=false,starting=false,offered=false,answered=false;
   bool muted=false,cameraOff=false,speaker=false,finished=false;
   bool rendererReady=false,connectionEstablished=false;
+  int heartbeatErrors=0;
   String state='Preparing…';
 
   @override void initState(){
@@ -198,12 +199,22 @@ class _ReachCallScreenState extends State<ReachCallScreen>
   }
 
   void _callUpdated(List<Map<String,dynamic>> values){
-    if(finished||values.isEmpty)return;
+    if(finished)return;
+    if(values.isEmpty){
+      // A block/suspension can revoke row visibility during an active call.
+      _finish('This call is no longer authorized');
+      return;
+    }
     final item=values.first;
     final status=item['status'] as String? ?? '';
     if(ReachCalls.isTerminal(status)){
       _finish('Call $status');
       return;
+    }
+    if(status=='accepted'&&!finished){
+      heartbeatTimer??=Timer.periodic(const Duration(seconds:25),(_){
+        if(!finished)unawaited(_heartbeat());
+      });
     }
     if(status=='accepted'&&!starting){
       starting=true;
@@ -224,6 +235,26 @@ class _ReachCallScreenState extends State<ReachCallScreen>
   Future<void> decline()async{
     try{await service.respond(callId,'decline');}catch(_){}
     _finish('Declined');
+  }
+
+  Future<void> _heartbeat()async {
+    if(finished||!starting)return;
+    try {
+      final active=await Supabase.instance.client.rpc('heartbeat_reach_call',
+        params:{'p_call':callId});
+      if(finished)return;
+      if(active!=true){
+        // A blocked/suspended participant or server-side termination.
+        _finish('Call ended for privacy or connection reasons');
+        return;
+      }
+      heartbeatErrors=0;
+    } catch (_) {
+      // Network handover can temporarily prevent heartbeats. Server
+      // independently expires missed heartbeats, limiting stuck calls.
+      heartbeatErrors++;
+      if(heartbeatErrors>=4&&!finished)await _end('end');
+    }
   }
 
   Future<void> _prepareMedia()async {
@@ -531,6 +562,7 @@ class _ReachCallScreenState extends State<ReachCallScreen>
     finished=true;
     ringTimer?.cancel();connectionTimer?.cancel();
     statsTimer?.cancel();reconnectTimer?.cancel();disconnectTimer?.cancel();
+    heartbeatTimer?.cancel();
     unawaited(watchCall?.cancel()??Future<void>.value());
     unawaited(watchSignals?.cancel()??Future<void>.value());
     for(final track in media?.getTracks()??<MediaStreamTrack>[]) {track.stop();}
