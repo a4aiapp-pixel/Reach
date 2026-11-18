@@ -282,6 +282,7 @@ class ReachHome extends StatefulWidget {
 }
 class _ReachHomeState extends State<ReachHome>{
   int page=0;int revision=0;bool ready=false;Map<String,dynamic> profile={};
+  final Set<int> visitedPages={0};
   @override void initState(){super.initState();load();setupPush();}
   Future<void> setupPush() async {
     if(await ReachPush.prepare()) {
@@ -298,13 +299,18 @@ class _ReachHomeState extends State<ReachHome>{
     if(profile['terms_accepted_at']==null||str(profile['city']).trim().isEmpty||str(profile['country']).trim().isEmpty){
       return ProfileSetup(onComplete:(){load();});
     }
-    final pages=[DiscoverPage(key:ValueKey('discover$revision'),onCreated:refreshed),
-      MinePage(key:ValueKey('mine$revision'),onCreated:refreshed),
-      const InboxPage(),const CirclesPage(),
-      ProfilePage(profile:profile,onChanged:load,onTheme:widget.onTheme,themeMode:widget.themeMode,
-        lookId:widget.lookId,onLook:widget.onLook)];
-    return Scaffold(body:IndexedStack(index:page,children:pages),
-      bottomNavigationBar:NavigationBar(selectedIndex:page,onDestinationSelected:(i)=>setState(()=>page=i),
+    final pages=<Widget>[
+       DiscoverPage(key:ValueKey('discover$revision'),onCreated:refreshed),
+       visitedPages.contains(1)?MinePage(key:ValueKey('mine$revision'),onCreated:refreshed):const SizedBox.shrink(),
+       visitedPages.contains(2)?const InboxPage():const SizedBox.shrink(),
+       visitedPages.contains(3)?const CirclesPage():const SizedBox.shrink(),
+       visitedPages.contains(4)?ProfilePage(profile:profile,onChanged:load,onTheme:widget.onTheme,
+         themeMode:widget.themeMode,lookId:widget.lookId,onLook:widget.onLook):const SizedBox.shrink()
+     ];
+     return Scaffold(body:IndexedStack(index:page,children:pages),
+       bottomNavigationBar:NavigationBar(selectedIndex:page,onDestinationSelected:(i)=>setState((){
+         page=i;visitedPages.add(i);
+       }),
         labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,
         destinations:const [
           NavigationDestination(icon:Icon(Icons.explore_outlined),selectedIcon:Icon(Icons.explore),label:'Discover'),
@@ -359,13 +365,19 @@ class DiscoverPage extends StatefulWidget {
 class _DiscoverPageState extends State<DiscoverPage>{
  String area='city',category='All',kind='All';int radius=25;bool loading=true;
  List<ReachPost> posts=[];final search=TextEditingController();Timer? debounce;
+ int requestGeneration=0;
  @override void initState(){super.initState();refresh();}
  @override void dispose(){debounce?.cancel();search.dispose();super.dispose();}
  Future<void> refresh() async {
-  if(!mounted)return;setState(()=>loading=true);
+  if(!mounted)return;
+  final ticket=++requestGeneration;
+  setState(()=>loading=true);
   final result=await busy(context,()=>reach.discover(area:area,category:category,
     kind:kind,keyword:search.text,radiusKm:radius));
-  if(mounted)setState((){if(result!=null)posts=result;loading=false;});
+  // Avoid stale results after fast successive changes to search/filter.
+  if(mounted&&ticket==requestGeneration){
+    setState((){if(result!=null)posts=result;loading=false;});
+  }
  }
  @override Widget build(BuildContext context)=>SafeArea(child:Column(children:[
   Padding(padding:const EdgeInsets.fromLTRB(18,15,18,0),child:Column(children:[
@@ -614,13 +626,19 @@ class _InboxPageState extends State<InboxPage>{
  List<Map<String,dynamic>> conversations=[],alerts=[];
  @override void initState(){super.initState();refresh();}
  Future<void> refresh()async{
-  final a=await busy(context,()=>reach.requests());
-  final b=await busy(context,()=>reach.requests(incoming:false));
-  final c=await busy(context,reach.conversations);
-  final d=await busy(context,reach.alerts);
+  final values=await Future.wait<Object?>([
+    busy(context,()=>reach.requests()),
+    busy(context,()=>reach.requests(incoming:false)),
+    busy(context,reach.conversations),
+    busy(context,reach.alerts)
+  ]);
   if(mounted)setState((){
-   if(a!=null)incoming=a;if(b!=null)outgoing=b;
-   if(c!=null)conversations=c;if(d!=null)alerts=d;loading=false;
+    final a=values[0] as List<ReachRequest>?;
+    final b=values[1] as List<ReachRequest>?;
+    final c=values[2] as List<Map<String,dynamic>>?;
+    final d=values[3] as List<Map<String,dynamic>>?;
+    if(a!=null)incoming=a;if(b!=null)outgoing=b;
+    if(c!=null)conversations=c;if(d!=null)alerts=d;loading=false;
   });
  }
  @override Widget build(BuildContext context)=>SafeArea(child:Column(children:[
