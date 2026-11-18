@@ -14,6 +14,8 @@ import 'reach_themes.dart';
 import 'chat_attachment_panel.dart';
 import 'business_studio.dart';
 import 'reach_calling.dart';
+import 'reach_call_preferences.dart';
+import 'reach_assist.dart';
 
 late final ReachRepository reach;
 const categories = ['All','Technology','Learning','Career','Home & repairs','Sports','Creative','Local knowledge','Other'];
@@ -389,6 +391,10 @@ class _DiscoverPageState extends State<DiscoverPage>{
       crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text('Reach',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w900)),
         Text('Good things happen when we connect',style:Theme.of(context).textTheme.bodySmall)])),
+      if(AppConfig.aiEnabled)
+        IconButton(tooltip:'Reach Assist AI',onPressed:()=>Navigator.push(context,
+          MaterialPageRoute(builder:(_)=>const ReachAssistPage())),
+          icon:const Icon(Icons.auto_awesome)),
       IconButton(tooltip:'Refresh',onPressed:refresh,icon:const Icon(Icons.refresh_rounded))]),gap(20),
     TextField(controller:search,onChanged:(_){debounce?.cancel();debounce=Timer(const Duration(milliseconds:400),refresh);},
       decoration:const InputDecoration(hintText:'Search help, skills or opportunities',prefixIcon:Icon(Icons.search_rounded))),gap(13),
@@ -859,6 +865,22 @@ class ProfilePage extends StatelessWidget {
          underline:const SizedBox.shrink(),value:themeMode,
          items:ThemeMode.values.map((e)=>DropdownMenuItem(value:e,child:Text(e.name))).toList(),
          onChanged:(v){if(v!=null)onTheme(v);}),),
+     if(AppConfig.aiEnabled)
+       ListTile(
+         leading:const Icon(Icons.auto_awesome),
+         title:const Text('Reach Assist · AI'),
+         subtitle:const Text('Private AI help, translation, drafting and safety tips'),
+         trailing:const Icon(Icons.chevron_right),
+         onTap:()=>Navigator.push(context,
+           MaterialPageRoute(builder:(_)=>const ReachAssistPage()))),
+     if(AppConfig.callingEnabled)
+       ListTile(
+         leading:const Icon(Icons.settings_voice_outlined),
+         title:const Text('Calling & network'),
+         subtitle:const Text('Adaptive quality, data saver and auto-reconnect'),
+         trailing:const Icon(Icons.chevron_right),
+         onTap:()=>Navigator.push(context,
+           MaterialPageRoute(builder:(_)=>const ReachCallSettingsPage()))),
      ListTile(leading:const Icon(Icons.business_center_outlined),
        title:const Text('Reach for Business'),
        subtitle:const Text('Apply for a professional profile · no charges'),
