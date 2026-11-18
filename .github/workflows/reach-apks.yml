@@ -59,85 +59,24 @@ jobs:
       - name: Execute model and widget tests
         run: flutter test
 
-      - name: Build universal release-mode APK
-        run: |
-          flutter build apk --release --target-platform android-arm,android-arm64,android-x64
-          mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/Reach-v1.0.0-universal-connected.apk
-
-      - name: Build ABI-specific ARM64 release-mode APK
-        run: |
-          flutter build apk --release --split-per-abi
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Reach-v1.0.0-arm64-v8a-connected.apk
-
-      - name: Integrity checks and artifact inventory
-        run: |
-          test -s dist/Reach-v1.0.0-universal-connected.apk
-          test -s dist/Reach-v1.0.0-arm64-v8a-connected.apk
-          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
-          cat > dist/README.txt <<'EOF'
-          REACH 1.0.0 - ANDROID COMPILATION TEST BUILDS
-          ==============================================
-          UNIVERSAL: ARM32 + ARM64 + x86-64.
-          ARM64: Android ARM64 devices only.
-          These APKs use the Flutter template's debug signing key, not a secure
-          Play upload key. They use Reach's public Supabase endpoint and publishable client key.
-          Live authentication and chat still require multi-device validation.
-          They are NOT finalized production or Google Play release binaries.
-          Configure authentication, SQL migrations, policy pages, moderation,
-          Play credentials and release signing before public distribution.
-          EOF
-
-      - name: Upload universal APK separately
-        uses: actions/upload-artifact@v4
-        with:
-          name: Reach-v1.0.0-Universal-APK
-          path: dist/Reach-v1.0.0-universal-connected.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload ARM64 APK separately
-        uses: actions/upload-artifact@v4
-        with:
-          name: Reach-v1.0.0-ARM64-APK
-          path: dist/Reach-v1.0.0-arm64-v8a-connected.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload checksums and build notes
-        uses: actions/upload-artifact@v4
-        with:
-          name: Reach-v1.0.0-Build-Checksums
-          path: |
-            dist/SHA256SUMS.txt
-            dist/README.txt
-          if-no-files-found: error
-          retention-days: 14
-
-      # Signed Play candidate is strictly optional. The ordinary APK jobs
-      # never require paid services, and no signing secrets are committed.
-      - name: Check readiness of signed Play candidate
+      - name: Prepare persistent upload-key signing when securely configured
         shell: bash
         env:
           PLAY_KEYSTORE_B64: ${{ secrets.PLAY_KEYSTORE_B64 }}
           PLAY_KEYSTORE_PASS: ${{ secrets.PLAY_KEYSTORE_PASS }}
           PLAY_KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
           PLAY_KEY_PASS: ${{ secrets.PLAY_KEY_PASS }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
-          LEGAL_BASE_URL: ${{ secrets.LEGAL_BASE_URL }}
         run: |
           set -euo pipefail
           if [ -z "$PLAY_KEYSTORE_B64" ] && [ -z "$PLAY_KEYSTORE_PASS" ] &&
              [ -z "$PLAY_KEY_ALIAS" ] && [ -z "$PLAY_KEY_PASS" ]; then
-            echo "Signed AAB skipped: secure Play upload key has not been configured."
-            echo "REACH_PLAY_CANDIDATE=0" >> "$GITHUB_ENV"
+            echo "Persistent signing is not configured; these are test APKs only."
+            echo "REACH_SIGNING_ENABLED=0" >> "$GITHUB_ENV"
             exit 0
           fi
-          for variable in PLAY_KEYSTORE_B64 PLAY_KEYSTORE_PASS PLAY_KEY_ALIAS PLAY_KEY_PASS SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPPORT_EMAIL LEGAL_BASE_URL; do
+          for variable in PLAY_KEYSTORE_B64 PLAY_KEYSTORE_PASS PLAY_KEY_ALIAS PLAY_KEY_PASS; do
             if [ -z "${!variable}" ]; then
-              echo "::error::Incomplete Play upload configuration: missing $variable"
+              echo "::error::Incomplete persistent signing configuration: $variable"
               exit 1
             fi
           done
@@ -150,13 +89,96 @@ jobs:
             printf 'keyPassword=%s\n' "$PLAY_KEY_PASS"
           } > android/key.properties
           chmod 600 android/key.properties android/app/upload-key.jks
-          echo "REACH_PLAY_CANDIDATE=1" >> "$GITHUB_ENV"
+          echo "REACH_SIGNING_ENABLED=1" >> "$GITHUB_ENV"
 
-      - name: Apply signed AAB setup
-        if: env.REACH_PLAY_CANDIDATE == '1'
+      - name: Apply permanent signing configuration before ALL Android builds
+        if: env.REACH_SIGNING_ENABLED == '1'
         env:
           REACH_SIGNING_ENABLED: '1'
         run: python3 tools/prepare_android.py
+
+      - name: Build universal release-mode APK
+        run: |
+          flutter build apk --release --target-platform android-arm,android-arm64,android-x64
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Reach-v1.0.1-universal-connected.apk
+
+      - name: Build ABI-specific ARM64 release-mode APK
+        run: |
+          flutter build apk --release --split-per-abi
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Reach-v1.0.1-arm64-v8a-connected.apk
+
+      - name: Integrity checks and artifact inventory
+        run: |
+          test -s dist/Reach-v1.0.1-universal-connected.apk
+          test -s dist/Reach-v1.0.1-arm64-v8a-connected.apk
+          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
+          cat > dist/README.txt <<'EOF'
+          REACH 1.0.1 - ANDROID RELEASE-CANDIDATE COMPILE
+          ==============================================
+          UNIVERSAL: ARM32 + ARM64 + x86-64.
+          ARM64: Android ARM64 devices only.
+          With persistent signing secrets, APKs and AAB use the same protected
+          upload key, permitting upgrades from subsequent builds signed by that
+          key. Without such secrets, APKs use an ephemeral debug key and cannot
+          reliably upgrade previous installs. They are TEST BUILDS ONLY.
+          The app connects to Reach's public Supabase endpoint.
+          Live authentication and chat still require multi-device validation.
+          They are NOT finalized production or Google Play release binaries.
+          Configure authentication, SQL migrations, policy pages, moderation,
+          Play credentials and release signing before public distribution.
+          EOF
+
+      - name: Upload universal APK separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reach-v1.0.1-Universal-APK
+          path: dist/Reach-v1.0.1-universal-connected.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload ARM64 APK separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reach-v1.0.1-ARM64-APK
+          path: dist/Reach-v1.0.1-arm64-v8a-connected.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload checksums and build notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reach-v1.0.1-Build-Checksums
+          path: |
+            dist/SHA256SUMS.txt
+            dist/README.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      # Signed Play candidate is strictly optional. The ordinary APK jobs
+      # never require paid services, and no signing secrets are committed.
+      - name: Evaluate eligibility for Play bundle build
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          LEGAL_BASE_URL: ${{ secrets.LEGAL_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ "${REACH_SIGNING_ENABLED:-0}" != "1" ]; then
+            echo "REACH_PLAY_CANDIDATE=0" >> "$GITHUB_ENV"
+            echo "AAB skipped: no persistent upload key."
+          elif [[ "$SUPABASE_URL" != https://*.supabase.co ]] ||
+               [[ "$SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* ]] ||
+               [[ "$SUPPORT_EMAIL" != *@*.* ]] ||
+               [[ "$LEGAL_BASE_URL" != https://* ]] ||
+               [[ "$LEGAL_BASE_URL" == *example.com* ]]; then
+            echo "REACH_PLAY_CANDIDATE=0" >> "$GITHUB_ENV"
+            echo "AAB skipped: verified publishable project config, support email and live HTTPS legal pages required."
+          else
+            echo "REACH_PLAY_CANDIDATE=1" >> "$GITHUB_ENV"
+          fi
 
       - name: Build signed Play-candidate Android App Bundle
         if: env.REACH_PLAY_CANDIDATE == '1'
@@ -175,16 +197,16 @@ jobs:
             --dart-define="LEGAL_BASE_URL=$LEGAL_BASE_URL"
           test -s build/app/outputs/bundle/release/app-release.aab
           jarsigner -verify build/app/outputs/bundle/release/app-release.aab
-          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.0.0-signed-Play-CANDIDATE.aab
-          sha256sum dist/Reach-v1.0.0-signed-Play-CANDIDATE.aab > dist/PLAY-AAB-SHA256.txt
+          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.0.1-signed-Play-CANDIDATE.aab
+          sha256sum dist/Reach-v1.0.1-signed-Play-CANDIDATE.aab > dist/PLAY-AAB-SHA256.txt
 
       - name: Upload signed Play candidate AAB
         if: env.REACH_PLAY_CANDIDATE == '1'
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.0-SIGNED-PLAY-CANDIDATE
+          name: Reach-v1.0.1-SIGNED-PLAY-CANDIDATE
           path: |
-            dist/Reach-v1.0.0-signed-Play-CANDIDATE.aab
+            dist/Reach-v1.0.1-signed-Play-CANDIDATE.aab
             dist/PLAY-AAB-SHA256.txt
           if-no-files-found: error
           retention-days: 14

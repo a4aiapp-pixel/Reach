@@ -16,6 +16,7 @@ import 'business_studio.dart';
 import 'reach_calling.dart';
 import 'reach_call_preferences.dart';
 import 'reach_assist.dart';
+import 'reach_legal_sheet.dart';
 
 late final ReachRepository reach;
 const categories = ['All','Technology','Learning','Career','Home & repairs','Sports','Creative','Local knowledge','Other'];
@@ -225,7 +226,13 @@ class _AuthPageState extends State<AuthPage> {
             controlAffinity:ListTileControlAffinity.leading,
             title:const Text('I am 18 or older and agree to the community rules and privacy notice.',
               style:TextStyle(fontSize:13)),
-            value:agreed,onChanged:(v)=>setState(()=>agreed=v??false))],
+            value:agreed,onChanged:(v)=>setState(()=>agreed=v??false)),
+            Align(alignment:Alignment.centerLeft,
+              child:TextButton.icon(
+                onPressed:()=>showReachLegalSummary(context),
+                icon:const Icon(Icons.policy_outlined),
+                label:const Text('Read privacy and community rules'))),
+          ],
           gap(16),
           FilledButton(onPressed:loading?null:submit,
             child:Padding(padding:const EdgeInsets.all(13),
@@ -342,6 +349,9 @@ class _ProfileSetupState extends State<ProfileSetup>{
    gap(12),CheckboxListTile(value:agree,onChanged:(v)=>setState(()=>agree=v??false),
      title:const Text('I am 18 or older and accept the community rules and privacy policy.'),
      subtitle:const Text('No harassment, fraud, unsafe requests, unwanted contacts, or impersonation.')),
+   TextButton.icon(onPressed:()=>showReachLegalSummary(context),
+     icon:const Icon(Icons.policy_outlined),
+     label:const Text('Review privacy and community rules')),
    gap(16),FilledButton(onPressed:()=>busy(context,()async {
      if(city.text.trim().isEmpty||country.text.trim().isEmpty||!agree) throw StateError('Enter your city/country and accept the rules.');
      await reach.updateProfile({'city':city.text.trim(),'country':country.text.trim(),
@@ -896,18 +906,11 @@ class ProfilePage extends StatelessWidget {
        trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.push(context,
          MaterialPageRoute(builder:(_)=>const BlockedPage()))),
      const Divider(height:1),
-     ListTile(leading:const Icon(Icons.policy_outlined),title:const Text('Privacy and community rules'),
-       trailing:const Icon(Icons.chevron_right),onTap:()=>showModalBottomSheet<void>(context:context,
-         isScrollControlled:true,showDragHandle:true,builder:(c)=>Padding(
-           padding:const EdgeInsets.all(22),child:SingleChildScrollView(child:Column(
-             mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-               Text('Community commitments',style:Theme.of(c).textTheme.titleLarge),gap(12),
-               const Text('Reach is intended for adults 18+. Be respectful. Do not post scams, impersonations, hate, sexual exploitation, illegal requests, dangerous instructions, spam, phone numbers, exact home addresses, or sensitive personal information. Report unsafe content and block unwanted contact. Self-described credentials are not verified.'),
-               gap(12),const Text('Privacy: We store profile data, posts, requests, chat messages, reports, circles, and optionally approximate location in your Supabase instance. Discovery never exposes the stored coordinate grid. Review and replace legal/PRIVACY.md with the real operator’s policy before release.'),
-               gap(12),if(AppConfig.legalBase.isNotEmpty)TextButton(
-                 onPressed:()=>launchUrl(Uri.parse('${AppConfig.legalBase}/privacy.html')),
-                 child:const Text('Read full privacy policy')),
-               gap(8),FilledButton(onPressed:()=>popSafe(c),child:const Text('Close'))]))))),
+     ListTile(leading:const Icon(Icons.policy_outlined),
+       title:const Text('Privacy and community rules'),
+       subtitle:const Text('Review data practices and safety rules'),
+       trailing:const Icon(Icons.chevron_right),
+       onTap:()=>showReachLegalSummary(context)),
      const Divider(height:1),
      ListTile(leading:const Icon(Icons.mail_outline),title:const Text('Support'),
        subtitle:Text(AppConfig.supportEmail.isEmpty?'Configure support email before launch':AppConfig.supportEmail),
@@ -921,7 +924,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.0.0 · Built for trust and usefulness',
+   ])),gap(18),Center(child:Text('Reach 1.0.1 · Built for trust and usefulness',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }
