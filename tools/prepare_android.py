@@ -56,6 +56,22 @@ if os.environ.get('REACH_ENABLE_PUSH') == '1':
     if 'com.google.gms.google-services' not in s:
         s=s.replace('plugins {','plugins {\n    id("com.google.gms.google-services")',1)
         build.write_text(s)
+# Voice/video calls are foreground-only and hidden until real QA approval.
+# Avoid runtime mic/camera permission requests when the call flag is disabled.
+if os.environ.get('REACH_ENABLE_CALLS') == '1':
+    for permission in ('android.permission.RECORD_AUDIO', 'android.permission.CAMERA',
+                       'android.permission.MODIFY_AUDIO_SETTINGS',
+                       'android.permission.ACCESS_NETWORK_STATE'):
+        if not any(x.get(A+'name') == permission for x in doc.findall('uses-permission')):
+            el = ET.Element('uses-permission')
+            el.set(A+'name', permission)
+            doc.insert(0,el)
+    for feature in ('android.hardware.camera', 'android.hardware.microphone'):
+        if not any(x.get(A+'name')==feature for x in doc.findall('uses-feature')):
+            el=ET.Element('uses-feature')
+            el.set(A+'name',feature)
+            el.set(A+'required','false')
+            doc.insert(0,el)
 tree.write(manifest,encoding='utf-8',xml_declaration=True)
 if os.environ.get('REACH_SIGNING_ENABLED') == '1':
     props_file=android/'key.properties'
