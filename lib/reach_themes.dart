@@ -164,11 +164,15 @@ ReachLook reachLookById(String id) {
   return reachLooks.first;
 }
 
-class ReachThemeGallery extends StatelessWidget {
+class ReachThemeGallery extends StatefulWidget {
   const ReachThemeGallery({super.key,required this.selected,required this.onSelected});
   final String selected;
   final ValueChanged<String> onSelected;
-
+  @override State<ReachThemeGallery> createState()=>_ReachThemeGalleryState();
+}
+class _ReachThemeGalleryState extends State<ReachThemeGallery> {
+  late String current;
+  @override void initState(){super.initState();current=widget.selected;}
   @override Widget build(BuildContext context)=>Scaffold(
     appBar:AppBar(title:const Text('Design studio')),
     body:SafeArea(child:GridView.builder(
@@ -183,20 +187,20 @@ class ReachThemeGallery extends StatelessWidget {
         final background=look.preferDark?look.darkCanvas:look.canvas;
         final face=look.preferDark?look.darkSurface:look.surface;
         final radius=BorderRadius.circular(look.radius);
-        return Semantics(button:true,selected:look.id==selected,
+        return Semantics(button:true,selected:look.id==current,
           label:'Select ${look.name} theme',child:InkWell(
-          onTap:()=>onSelected(look.id),
+          onTap:(){setState(()=>current=look.id);widget.onSelected(look.id);},
           borderRadius:radius,
           child:Container(
             decoration:BoxDecoration(color:background,borderRadius:radius,
-              border:Border.all(color:look.id==selected?look.seed:scheme.outlineVariant,
-                width:look.id==selected?3:1)),
+              border:Border.all(color:look.id==current?look.seed:scheme.outlineVariant,
+                width:look.id==current?3:1)),
             padding:const EdgeInsets.all(12),
             child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
               Row(children:[
                 CircleAvatar(radius:10,backgroundColor:look.seed),
                 const Spacer(),
-                if(look.id==selected)Icon(Icons.check_circle,color:look.seed,size:21),
+                if(look.id==current)Icon(Icons.check_circle,color:look.seed,size:21),
               ]),
               const SizedBox(height:13),
               Container(height:36,alignment:Alignment.centerLeft,
