@@ -40,6 +40,37 @@ Status: **PRE-RELEASE / NOT APPROVED FOR PLAY PRODUCTION**
 | Play listing | Store listing draft exists | Original marketing screenshots, verified brand/package name, logo, privacy URL and truthful declarations |
 | Distribution/signing | APK workflow exists, no established signed AAB or Play Console account | Secure upload key, verified developer account, internal test and (if required) 12 testers/14 days closed testing |
 
+## Consolidated implementation notes — 18 November 2026
+
+- **File sharing:** Private `reach-chat` Supabase bucket and RLS-protected
+  `chat_attachments` table have been deployed. The Flutter chat now has a
+  system-picker attachment gallery, share-to-device action and owner deletion.
+  Allowlisted photos, audio, short video and documents are capped at **6 MiB
+  each**, **15 files/day**, and **50 MiB stored per sender**. APK, scripts,
+  arbitrary binaries and archives are blocked. The upload indicator represents
+  completed files, **not exact bytes transferred**. Large resumable/TUS uploads
+  are not yet implemented. Uploaded content has **no deployed malware scanning**
+  and requires further threat/abuse testing before public scale.
+- **Account deletion:** Signed-in attachment cleanup Edge Function added;
+  Flutter and the external deletion page remove storage objects before the
+  account database deletion RPC. The RPC now rejects orphan-producing deletes
+  from older clients when files remain. Cross-device verification is pending.
+- **Monetization:** Database foundation added for backend-controlled paid
+  entitlements, manually reviewed business profiles, future sponsorships,
+  and a private revenue ledger. Business Studio is **a non-charging pilot
+  registration**, not a working subscription/advertising sales channel.
+  No merchant account, billing integration, payouts, real ad impressions or
+  earnings have been established. No invented revenue data will be shown.
+- **Calling:** One-to-one audio/video architecture and launch gates recorded
+  in `docs/VOICE_VIDEO_CALLS_RELEASE_GATE.md`. Calls remain **not implemented
+  and not enabled**, pending actual Flutter WebRTC, signaling, TURN, native
+  permissions and multi-device tests. Free/STUN-first is a cost preference,
+  not a guarantee of free reliable calling.
+- **Launch status:** A prior verified commit built universal/ARM64 APKs.
+  This updated source must separately pass current-head Flutter analysis,
+  widget tests, Android build and device checks. No signed AAB/Play Console
+  production submission has been established.
+
 ## Critical risks
 1. **BLOCKER: OAuth and verification URL configuration.** Google provider not enabled.
    Supabase Site URL currently uses localhost:3000. Add
