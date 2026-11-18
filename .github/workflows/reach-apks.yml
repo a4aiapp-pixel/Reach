@@ -160,6 +160,8 @@ jobs:
       - name: Evaluate eligibility for Play bundle build
         shell: bash
         env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
           LEGAL_BASE_URL: ${{ secrets.LEGAL_BASE_URL }}
         run: |
@@ -167,10 +169,13 @@ jobs:
           if [ "${REACH_SIGNING_ENABLED:-0}" != "1" ]; then
             echo "REACH_PLAY_CANDIDATE=0" >> "$GITHUB_ENV"
             echo "AAB skipped: no persistent upload key."
-          elif [ -z "$SUPPORT_EMAIL" ] || [ -z "$LEGAL_BASE_URL" ] ||
-               [ "$LEGAL_BASE_URL" = "https://example.com" ]; then
+          elif [[ "$SUPABASE_URL" != https://*.supabase.co ]] ||
+               [[ "$SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* ]] ||
+               [[ "$SUPPORT_EMAIL" != *@*.* ]] ||
+               [[ "$LEGAL_BASE_URL" != https://* ]] ||
+               [[ "$LEGAL_BASE_URL" == *example.com* ]]; then
             echo "REACH_PLAY_CANDIDATE=0" >> "$GITHUB_ENV"
-            echo "AAB skipped: verified support email and live HTTPS legal pages needed."
+            echo "AAB skipped: verified publishable project config, support email and live HTTPS legal pages required."
           else
             echo "REACH_PLAY_CANDIDATE=1" >> "$GITHUB_ENV"
           fi
