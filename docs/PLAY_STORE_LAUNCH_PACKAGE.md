@@ -1,8 +1,8 @@
 # Google Play Console — Reach launch package (operator checklist)
-Updated 18 Nov 2026. Release status: **NOT SUBMITTED**. The current signed-AAB handoff, live policy URLs and corrected 1.0.2 version are in [PLAY_CONSOLE_HANDOFF_2026_11_18.md](PLAY_CONSOLE_HANDOFF_2026_11_18.md). This older checklist is retained as a conservative operational gate ledger.
+Updated 18 Nov 2026. Release status: **NOT SUBMITTED**. The current signed-AAB handoff, live policy URLs and current 1.0.5 version are in [PLAY_CONSOLE_HANDOFF_2026_11_18.md](PLAY_CONSOLE_HANDOFF_2026_11_18.md). This older checklist is retained as a conservative operational gate ledger.
 
 ## Store text
-**App name:** Reach – Community Help
+**App name:** Reach
 
 **Short description (under 80 characters):**
 Offer help, request support, and connect with your community.
