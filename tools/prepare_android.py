@@ -115,11 +115,33 @@ for candidate in (android/'app/build.gradle.kts', android/'app/build.gradle'):
         s=re.sub(r'compileSdkVersion\s+flutter\.compileSdkVersion','compileSdkVersion 36',s)
         s=re.sub(r'targetSdkVersion\s+flutter\.targetSdkVersion','targetSdkVersion 36',s)
         candidate.write_text(s)
-# Use the included original Reach icon instead of Flutter's default launcher icon.
-for density in ('mdpi','hdpi','xhdpi','xxhdpi','xxxhdpi'):
-    src=root/'assets/launcher'/f'ic_launcher_{density}.png'
-    target=android/'app/src/main/res'/f'mipmap-{density}'/'ic_launcher.png'
-    if src.exists():
-        target.parent.mkdir(parents=True,exist_ok=True)
-        shutil.copyfile(src,target)
-print('Reach Android configuration applied: API 36, deep links, network, opt-in location, push='+str(os.environ.get('REACH_ENABLE_PUSH')=='1'))
+# Reproduce the owner-selected three-person location pin across every
+# Android density from a single versioned binary asset. The app name,
+# applicationId and persistent upload signing key intentionally remain unchanged.
+try:
+    from PIL import Image
+except ImportError as exc:
+    raise SystemExit("Pillow required: run the branded CI Python venv") from exc
+
+brand_source = root / 'assets/branding/reach_selected_icon.webp'
+if not brand_source.is_file():
+    raise SystemExit('Missing approved Reach branding artwork')
+with Image.open(brand_source) as original:
+    if original.size[0] < 160 or original.size[1] < 160:
+        raise SystemExit('Approved Reach icon source is below required size')
+    brand = original.convert('RGB')
+    for density, size in (
+        ('mdpi', 48), ('hdpi', 72), ('xhdpi', 96),
+        ('xxhdpi', 144), ('xxxhdpi', 192)
+    ):
+        target = android/'app/src/main/res'/f'mipmap-{density}'/'ic_launcher.png'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        brand.resize((size, size), Image.Resampling.LANCZOS).save(
+            target, 'PNG', optimize=True
+        )
+    play_icon = root/'assets/branding/reach_play_store_icon_512.png'
+    brand.resize((512, 512), Image.Resampling.LANCZOS).save(
+        play_icon, 'PNG', optimize=True
+    )
+print('Reach Android configured: API 36, selected 3-person location-pin icon,'
+      ' deep links, opt-in location, push='+str(os.environ.get('REACH_ENABLE_PUSH')=='1'))
