@@ -238,7 +238,7 @@ These are fixed everyday phrases, not translation of your message. Check wording
         'can choose one in Edit profile. Confirm your email before signing in. '
         'Google sign-in is shown only when the operator has enabled it.';
     }
-    if(_any(s,['attach file','send file','share file','upload file',
+    if(_any(s,['attach file','send file','send a file','share file','share a file','upload file',
       'pdf file','share a document','send photo'])){
       return 'Open an approved Reach conversation and use the private '
         'file-sharing panel. Choose documents, photos, audio or short videos. '
@@ -264,7 +264,7 @@ These are fixed everyday phrases, not translation of your message. Check wording
         'under pressure, or arrange unsafe private meetups. '
         'For imminent danger, contact local emergency services.';
     }
-    if(_any(s,['assist','chatbot','ai cost','offline helper',
+    if(_any(s,['assist','chatbot','ai cost','ai for free','ai free','offline helper',
       'artificial intelligence','ai features'])){
       return 'Reach Assist offers free local smart tools for drafts, '
         'writing cleanup, scam warnings, a phrasebook and community ideas. '
