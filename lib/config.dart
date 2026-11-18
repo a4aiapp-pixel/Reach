@@ -5,6 +5,7 @@ class AppConfig {
   static bool get ready => url.startsWith('https://') && key.isNotEmpty;
   static const callback = 'reachnetwork://auth-callback';
   static const callingEnabled = bool.fromEnvironment('ENABLE_REACH_CALLS', defaultValue:false);
+  static const aiEnabled = bool.fromEnvironment('ENABLE_REACH_AI',defaultValue:false);
   static const googleSignInEnabled = bool.fromEnvironment('ENABLE_GOOGLE_AUTH', defaultValue:false);
   static const appName = 'Reach';
   static const legalBase = String.fromEnvironment('LEGAL_BASE_URL');
