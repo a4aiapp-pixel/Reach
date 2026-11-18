@@ -40,7 +40,7 @@ class ReachLook {
       headlineSmall:TextStyle(fontFamily:font,fontSize:compact?22:26,
         fontWeight:FontWeight.w700,letterSpacing:-.5),
       titleLarge:TextStyle(fontFamily:font,fontWeight:FontWeight.w700,
-        letterSpacing:condensed?.3:-.3),
+        letterSpacing:condensed ? 0.3 : -0.3),
     );
     return ThemeData(
       useMaterial3:true,
