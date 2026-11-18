@@ -11,6 +11,7 @@ import 'models.dart';
 import 'repository.dart';
 import 'push_service.dart';
 import 'reach_themes.dart';
+import 'chat_attachment_panel.dart';
 
 late final ReachRepository reach;
 const categories = ['All','Technology','Learning','Career','Home & repairs','Sports','Creative','Local knowledge','Other'];
@@ -743,6 +744,7 @@ class _ChatPageState extends State<ChatPage>{
           ]))));
        });
      })),
+    ChatAttachmentsPanel(conversationId:widget.conversationId),
     Container(padding:const EdgeInsets.fromLTRB(12,8,8,9),decoration:BoxDecoration(
       color:Theme.of(context).colorScheme.surface),
      child:Row(children:[Expanded(child:TextField(controller:text,maxLength:2000,minLines:1,maxLines:4,
