@@ -8,12 +8,35 @@ class ReachRepository {
   final SupabaseClient client;
   String get uid => client.auth.currentUser?.id ?? '';
 
-  Future<void> signUp(String email, String password, String name) async {
+  Future<void> signUp(String email, String password, String name, String username) async {
     await client.auth.signUp(email: email, password: password,
-      data: {'display_name': name.trim()}, emailRedirectTo: AppConfig.callback);
+      data: {'display_name': name.trim(), 'username': username.trim().toLowerCase()},
+      emailRedirectTo: AppConfig.callback);
   }
-  Future<void> signIn(String email, String password) =>
-      client.auth.signInWithPassword(email: email, password: password).then((_) {});
+  Future<void> signIn(String identifier, String password) async {
+    final login = identifier.trim();
+    if (login.contains('@')) {
+      await client.auth.signInWithPassword(email: login, password: password);
+      return;
+    }
+    // A public client cannot obtain a user's email from their username.
+    // Resolve the username and verify the password only inside our
+    // rate-limited Edge Function, then establish the returned Gotrue session.
+    dynamic data;
+    try {
+      final response = await client.functions.invoke('username-login',
+        body: {'username': login.toLowerCase(), 'password': password});
+      data = response.data;
+    } catch (_) {
+      throw StateError('Username login failed. Check your credentials or try again later.');
+    }
+    if (data is! Map ||
+        data['refresh_token'] is! String || data['access_token'] is! String) {
+      throw StateError('Username login failed. Please try again.');
+    }
+    await client.auth.setSession(data['refresh_token'] as String,
+      accessToken: data['access_token'] as String);
+  }
   Future<void> magicLink(String email) async =>
       client.auth.signInWithOtp(email: email, emailRedirectTo: AppConfig.callback);
   Future<void> resetPassword(String email) async =>
