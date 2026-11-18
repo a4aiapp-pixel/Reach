@@ -29,9 +29,10 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
   static const modes=ReachLocalAssist.modes;
   static const hints=<String,List<String>>{
     'chat':[
-      'How do I ask my community for help?',
-      'How can I avoid a fake account?',
-      'How do I share a helpful introduction?',
+      'How do I share files?',
+      'How do I verify email?',
+      'How can I choose a theme?',
+      'Can I use AI for free?',
     ],
     'polish':[
       'pls help me with excel i dont understand it',
