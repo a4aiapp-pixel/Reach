@@ -8,6 +8,7 @@ on:
       - "lib/**"
       - "test/**"
       - "tools/**"
+      - "assets/branding/**"
       - "pubspec.yaml"
       - ".github/workflows/reach-verify.yml"
   pull_request:
@@ -41,8 +42,14 @@ jobs:
         run: flutter create --no-pub --platforms=android --project-name reach_network --org app.reachnetwork .
       - name: Remove framework template test
         run: rm -f test/widget_test.dart
-      - name: Apply Android API 36 and guarded permissions
-        run: python3 tools/prepare_android.py
+      - name: Prepare pinned icon rendering environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/reach-icon-venv
+          /tmp/reach-icon-venv/bin/python -m pip install --disable-pip-version-check -q Pillow==11.3.0
+      - name: Apply Android API 36 and approved Reach branding
+        run: /tmp/reach-icon-venv/bin/python tools/prepare_android.py
       - name: Verify no client-side server secrets
         shell: bash
         run: |
