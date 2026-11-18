@@ -57,6 +57,14 @@ jobs:
       - name: Apply Reach Android configuration and logo
         run: /tmp/reach-icon-venv/bin/python tools/prepare_android.py
 
+      - name: Build GeoNames offline country and city suggestions
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/reach-icon-venv/bin/python -m pip install --disable-pip-version-check -q geonamescache==3.0.2
+          /tmp/reach-icon-venv/bin/python tools/generate_geo_assets.py
+          test -s assets/geodata/countries.tsv
+          test -s assets/geodata/cities.tsv
       - name: Resolve dependencies
         run: flutter pub get
 
@@ -108,20 +116,20 @@ jobs:
         run: |
           flutter build apk --release --target-platform android-arm,android-arm64,android-x64
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/Reach-v1.0.5-universal-connected.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Reach-v1.0.6-universal-connected.apk
 
       - name: Build ABI-specific ARM64 release-mode APK
         run: |
           flutter build apk --release --split-per-abi
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Reach-v1.0.5-arm64-v8a-connected.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Reach-v1.0.6-arm64-v8a-connected.apk
 
       - name: Integrity checks and artifact inventory
         run: |
-          test -s dist/Reach-v1.0.5-universal-connected.apk
-          test -s dist/Reach-v1.0.5-arm64-v8a-connected.apk
+          test -s dist/Reach-v1.0.6-universal-connected.apk
+          test -s dist/Reach-v1.0.6-arm64-v8a-connected.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
           cat > dist/README.txt <<'EOF'
-          REACH 1.0.5 - ANDROID RELEASE-CANDIDATE COMPILE
+          REACH 1.0.6 - ANDROID RELEASE-CANDIDATE COMPILE
           ==============================================
           UNIVERSAL: ARM32 + ARM64 + x86-64.
           ARM64: Android ARM64 devices only.
@@ -139,23 +147,23 @@ jobs:
       - name: Upload universal APK separately
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.5-Universal-APK
-          path: dist/Reach-v1.0.5-universal-connected.apk
+          name: Reach-v1.0.6-Universal-APK
+          path: dist/Reach-v1.0.6-universal-connected.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Upload ARM64 APK separately
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.5-ARM64-APK
-          path: dist/Reach-v1.0.5-arm64-v8a-connected.apk
+          name: Reach-v1.0.6-ARM64-APK
+          path: dist/Reach-v1.0.6-arm64-v8a-connected.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Upload checksums and build notes
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.5-Build-Checksums
+          name: Reach-v1.0.6-Build-Checksums
           path: |
             dist/SHA256SUMS.txt
             dist/README.txt
@@ -168,14 +176,14 @@ jobs:
           set -euo pipefail
           test -s assets/branding/reach_play_store_icon_512.png
           mkdir -p dist
-          cp assets/branding/reach_play_store_icon_512.png dist/Reach-v1.0.5-Play-Icon-512.png
-          file dist/Reach-v1.0.5-Play-Icon-512.png
+          cp assets/branding/reach_play_store_icon_512.png dist/Reach-v1.0.6-Play-Icon-512.png
+          file dist/Reach-v1.0.6-Play-Icon-512.png
 
       - name: Upload Reach approved branding artwork
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.5-Official-Icon-512
-          path: dist/Reach-v1.0.5-Play-Icon-512.png
+          name: Reach-v1.0.6-Official-Icon-512
+          path: dist/Reach-v1.0.6-Play-Icon-512.png
           if-no-files-found: error
           retention-days: 14
 
@@ -208,9 +216,9 @@ jobs:
           python3 tools/check_android_bundle.py \
             build/app/outputs/bundle/release/app-release.aab dist/PLAY-PERMISSION-AUDIT.json
           mkdir -p dist
-          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.0.5-signed-Play-INTERNAL-TEST.aab
-          sha256sum dist/Reach-v1.0.5-signed-Play-INTERNAL-TEST.aab > dist/PLAY-AAB-SHA256.txt
-          keytool -printcert -jarfile dist/Reach-v1.0.5-signed-Play-INTERNAL-TEST.aab \
+          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.0.6-signed-Play-INTERNAL-TEST.aab
+          sha256sum dist/Reach-v1.0.6-signed-Play-INTERNAL-TEST.aab > dist/PLAY-AAB-SHA256.txt
+          keytool -printcert -jarfile dist/Reach-v1.0.6-signed-Play-INTERNAL-TEST.aab \
             | grep -E 'Owner:|SHA256:|Signature algorithm name:' > dist/PLAY-SIGNING-INFO.txt
           cat dist/PLAY-SIGNING-INFO.txt
 
@@ -218,9 +226,9 @@ jobs:
         if: env.REACH_SIGNING_ENABLED == '1'
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.5-SIGNED-AAB-INTERNAL-TEST
+          name: Reach-v1.0.6-SIGNED-AAB-INTERNAL-TEST
           path: |
-            dist/Reach-v1.0.5-signed-Play-INTERNAL-TEST.aab
+            dist/Reach-v1.0.6-signed-Play-INTERNAL-TEST.aab
             dist/PLAY-AAB-SHA256.txt
             dist/PLAY-SIGNING-INFO.txt
             dist/PLAY-PERMISSION-AUDIT.json

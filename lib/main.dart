@@ -18,7 +18,8 @@ import 'reach_call_preferences.dart';
 import 'reach_assist.dart';
 import 'reach_legal_sheet.dart';
 import 'community_catalog.dart';
-import 'reach_location_fields.dart';
+import 'geo_places.dart';
+import 'reach_permission_intro.dart';
 
 late final ReachRepository reach;
 // Categories and starter group templates are centralized in community_catalog.dart.
@@ -296,7 +297,8 @@ class ReachHome extends StatefulWidget {
   @override State<ReachHome> createState()=>_ReachHomeState();
 }
 class _ReachHomeState extends State<ReachHome>{
-  int page=0;int revision=0;bool ready=false;Map<String,dynamic> profile={};
+  int page=0;int revision=0;bool ready=false;bool showIntro=false;
+  Map<String,dynamic> profile={};
   final Set<int> visitedPages={0};
   @override void initState(){super.initState();load();setupPush();}
   Future<void> setupPush() async {
@@ -306,7 +308,28 @@ class _ReachHomeState extends State<ReachHome>{
   }
   Future<void> load() async {
     final p=await busy(context,reach.profile);
-    if(mounted&&p!=null) setState((){profile=p;ready=true;});
+    if(p==null)return;
+    final prefs=await SharedPreferences.getInstance();
+    final introDone=prefs.getBool('reach_permissions_intro_done_${reach.uid}')??false;
+    if(mounted)setState((){
+      profile=p;ready=true;showIntro=!introDone;
+    });
+  }
+  Future<void> finishPermissionIntro() async {
+    final prefs=await SharedPreferences.getInstance();
+    await prefs.setBool('reach_permissions_intro_done_${reach.uid}',true);
+    if(mounted)setState(()=>showIntro=false);
+  }
+  Future<bool> enableNearbyDuringIntro() async {
+    try {
+      await reach.setApproxLocation();
+      await finishPermissionIntro();
+      return true;
+    } catch(e) {
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(humanError(e))));
+      return false;
+    }
   }
   void refreshed(){setState(()=>revision++);}
   @override Widget build(BuildContext context){
@@ -314,6 +337,10 @@ class _ReachHomeState extends State<ReachHome>{
     if(profile['terms_accepted_at']==null||str(profile['city']).trim().isEmpty||str(profile['country']).trim().isEmpty){
       return ProfileSetup(onComplete:(){load();});
     }
+    if(showIntro)return ReachPermissionIntro(
+      onEnableNearby:enableNearbyDuringIntro,
+      onContinueWithout:finishPermissionIntro,
+    );
     final pages=<Widget>[
        DiscoverPage(key:ValueKey('discover$revision'),onCreated:refreshed),
        visitedPages.contains(1)?MinePage(key:ValueKey('mine$revision'),onCreated:refreshed):const SizedBox.shrink(),
@@ -346,8 +373,14 @@ class _ProfileSetupState extends State<ProfileSetup>{
    const ReachMark(),gap(20),Text('Make Reach yours',style:Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight:FontWeight.bold)),
    const Text('Your city and country help discover relevant offers. You can use Reach without GPS.'),gap(20),
    TextField(controller:name,textCapitalization:TextCapitalization.words,decoration:const InputDecoration(labelText:'Display name (optional)')),
-   gap(12),ReachCountryField(controller:country),
-   gap(12),ReachCityField(controller:city,country:country),
+   gap(12),GeoAutocompleteField(controller:country,type:GeoFieldType.country,
+       clearCityOnCountryChange:city,required:true),
+   gap(12),
+   GeoAutocompleteField(controller:city,type:GeoFieldType.city,
+       countryController:country,required:true),
+   const Padding(padding:EdgeInsets.symmetric(vertical:6),
+     child:Text('Place suggestions: GeoNames · CC BY 4.0 · offline.',
+       style:TextStyle(fontSize:11))),
    gap(12),CheckboxListTile(value:agree,onChanged:(v)=>setState(()=>agree=v??false),
      title:const Text('I am 18 or older and accept the community rules and privacy policy.'),
      subtitle:const Text('No harassment, fraud, unsafe requests, unwanted contacts, or impersonation.')),
@@ -356,7 +389,8 @@ class _ProfileSetupState extends State<ProfileSetup>{
      label:const Text('Review privacy and community rules')),
    gap(16),FilledButton(onPressed:()=>busy(context,()async {
      if(city.text.trim().isEmpty||country.text.trim().isEmpty||!agree) throw StateError('Enter your city/country and accept the rules.');
-     await reach.updateProfile({'city':city.text.trim(),'country':country.text.trim(),
+     await reach.updateProfile({'city':city.text.trim(),
+       'country':GeoDirectory.canonicalCountry(country.text)??country.text.trim(),
        if(name.text.trim().isNotEmpty)'display_name':name.text.trim(),
        'terms_accepted_at':DateTime.now().toUtc().toIso8601String()});widget.onComplete();
    }),child:const Padding(padding:EdgeInsets.all(14),child:Text('Start using Reach'))),
@@ -1192,7 +1226,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.0.5 · Built for trust and usefulness',
+   ])),gap(18),Center(child:Text('Reach 1.0.6 · Built for trust and usefulness',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }
@@ -1237,8 +1271,14 @@ class _EditProfilePageState extends State<EditProfilePage>{
         decoration:const InputDecoration(labelText:'Skills or credentials (self-declared)',
           hintText:'Excel, plumbing, mathematics, design')),
       gap(10),
-      ReachCountryField(controller:country),
-      ReachCityField(controller:city,country:country),
+      GeoAutocompleteField(controller:country,type:GeoFieldType.country,
+        clearCityOnCountryChange:city),
+      const SizedBox(height:8),
+      GeoAutocompleteField(controller:city,type:GeoFieldType.city,
+        countryController:country),
+      const Padding(padding:EdgeInsets.symmetric(vertical:6),
+        child:Text('Place suggestions: GeoNames · CC BY 4.0 · offline.',
+          style:TextStyle(fontSize:11))),
       gap(18),
       FilledButton(onPressed:saving?null:() async{
         final handle=username.text.trim().toLowerCase();
@@ -1256,7 +1296,8 @@ class _EditProfilePageState extends State<EditProfilePage>{
             'username':handle.isEmpty?null:handle,
             'bio':bio.text.trim(),
             'skills':skills.text.split(',').map((v)=>v.trim()).where((v)=>v.isNotEmpty).take(20).toList(),
-            'city':city.text.trim(),'country':country.text.trim(),
+            'city':city.text.trim(),
+            'country':GeoDirectory.canonicalCountry(country.text)??country.text.trim(),
           });
           return true;
         },success:'Profile updated');

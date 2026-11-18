@@ -1,4 +1,4 @@
-# Reach v1.0.5 — Play Console Data safety and App content worksheet
+# Reach v1.0.6 — Play Console Data safety and App content worksheet
 
 **Prepared:** 19 November 2026. **Status:** draft grounded in current code and database; NOT submitted to Google Play. Final declarations must be checked against the exact signed AAB and real user journeys. Do not claim to be approved by Google or to have passed third-party audits.
 
@@ -18,7 +18,7 @@
 | Personal info — email address | Supabase Auth registration, login, account recovery | Required to operate an account |
 | Personal info — name / user IDs | Username, display name, account ID | Username/display name collected during signup |
 | Personal info — other information | Profile bio, city, country, skills, chosen interests | Some profile fields required for full participation, others optional |
-| Approximate location | Optional Android location consent, rounded coordinates (0.1°) for nearby discovery | **v1.0.5 only declares coarse foreground location**; verify live behavior before final declaration |
+| Approximate location | Optional Android location consent, rounded coordinates (0.1°) for nearby discovery | **v1.0.6 only declares coarse foreground location**; verify live behavior before final declaration |
 | Messages | Invitation requests and accepted private conversations/messages | Sent only when used; not end-to-end encrypted |
 | Photos / videos / audio | User-selectable attachments for authorized chats | Only when the user selects them; no comprehensive malware-scanning guarantee |
 | Files and documents | User-selected PDFs/documents and other allowed files for chat | Same user-triggered behavior |
@@ -45,7 +45,7 @@
 - Target audience: 18+ is stated by app policies. Verify signup age declaration and real Google Play audience settings.
 - User-generated content: reports/blocks are implemented, but a **human operator and operational response process** are required. App is not a substitute for emergency reporting.
 - Child safety: must identify the real responsible contact, publish standards and comply with legal reporting and moderation obligations.
-- Device permissions: inspect the signed `PLAY-PERMISSION-AUDIT.json` from v1.0.5; **no precise location, notification, Bluetooth/audio or camera permission should appear by default**. APK/device-side confirmation is still required.
+- Device permissions: inspect the signed `PLAY-PERMISSION-AUDIT.json` from v1.0.6; **no precise location, notification, Bluetooth/audio or camera permission should appear by default**. APK/device-side confirmation is still required.
 
 ## Unresolved gates
 
@@ -58,3 +58,5 @@
 7. Maintain human review of `public.reports`, `public.reach_support_inbox` and case decisions; establish retention/deletion procedures.
 
 **Source of truth:** the exact signed Reach AAB and actual live app. A completed CI build is not Play authorization.
+
+**Country/city autocomplete:** Static GeoNames data is bundled in the app. Searching location names does not call a remote autocomplete or geocoding service, and does not request device location. Optional nearby location permission is proposed from a first-use explanation after verified account/profile setup and can be skipped. File attachments use the system picker, not broad storage access.
