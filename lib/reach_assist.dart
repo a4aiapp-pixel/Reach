@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config.dart';
+import 'reach_local_assist.dart';
 
 /// Reach Assist only receives the text explicitly submitted in this panel.
 /// Conversations stay in memory; they are not saved to a user profile or
@@ -12,8 +14,8 @@ class ReachAssistPage extends StatefulWidget {
 }
 
 class _ReachAssistMessage {
-  const _ReachAssistMessage(this.role,this.text);
-  final String role,text;
+  const _ReachAssistMessage(this.role,this.text,{this.source='local'});
+  final String role,text,source;
 }
 
 class _ReachAssistPageState extends State<ReachAssistPage> {
@@ -21,20 +23,20 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
   final scroll=ScrollController();
   final history=<_ReachAssistMessage>[];
   bool responding=false;
+  bool cloudMode=false,cloudConsent=false;
   String mode='chat';
   String? errorText;
-  static const modes=<String,String>{
-    'chat':'Ask anything',
-    'draft':'Draft a Reach post',
-    'translate':'Translate',
-    'safety':'Check safety',
-    'ideas':'Explore ideas',
-  };
+  static const modes=ReachLocalAssist.modes;
   static const hints=<String,List<String>>{
     'chat':[
       'How do I ask my community for help?',
-      'Help me explain a problem clearly',
-      'What makes a good Reach introduction?',
+      'How can I avoid a fake account?',
+      'How do I share a helpful introduction?',
+    ],
+    'polish':[
+      'pls help me with excel i dont understand it',
+      'hi i can teach math pls msg me',
+      'im available tomorrow if u need help',
     ],
     'draft':[
       'Write a friendly request for help with home repairs',
@@ -42,9 +44,9 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
       'Help me make this request shorter',
     ],
     'translate':[
-      'Translate this message to Urdu',
-      'Translate this message to English',
-      'Explain this sentence in simple language',
+      'Show common Reach phrases in English and Urdu',
+      'How do I say thank you in Urdu?',
+      'What is an offline phrasebook?',
     ],
     'safety':[
       'How can I identify a fake account?',
@@ -75,42 +77,73 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
     });
   }
 
-  Future<void> submit()async{
+  Future<void> submit()async {
     if(responding)return;
     final message=prompt.text.trim();
     if(message.isEmpty)return;
-    if(message.length>1800){
+    if(message.length>1800) {
       showFeedback('Limit your message to 1,800 characters.');
+      return;
+    }
+    if(cloudMode&&!cloudConsent){
+      showFeedback('Please agree to send this message to the cloud AI provider.');
       return;
     }
     final previous=history.reversed.take(6).toList().reversed
       .map((m)=><String,String>{
-        'role':m.role,'content':m.text.length>650?m.text.substring(0,650):m.text,
+        'role':m.role,
+        'content':m.text.length>650?m.text.substring(0,650):m.text,
       }).toList();
     setState((){
       history.add(_ReachAssistMessage('user',message));
-      responding=true;errorText=null;prompt.clear();
+      responding=true;
+      errorText=null;
+      prompt.clear();
     });
     moveDown();
-    try{
-      final response=await Supabase.instance.client.functions.invoke('reach-assist',
-        body:<String,dynamic>{
-          'message':message,'mode':mode,'history':previous,
-        });
-      final data=response.data;
-      if(data is! Map || data['answer'] is! String){
-        throw StateError('Reach Assist is temporarily unavailable. Try later.');
-      }
-      if(mounted){
-        setState((){history.add(_ReachAssistMessage('assistant',data['answer'] as String));});
-        moveDown();
-      }
-    }catch(e){
+    if(!cloudMode) {
+      // Always usable, no internet access, model charges, tokens or user data
+      // sent to any AI provider.
+      final answer=ReachLocalAssist.respond(mode,message);
       if(mounted){
         setState((){
-          errorText='Reach Assist could not answer. Your message was not shared '
-            'with other Reach members. You can retry.';
+          history.add(_ReachAssistMessage('assistant',answer));
+          responding=false;
         });
+        moveDown();
+      }
+      return;
+    }
+    try{
+      // Cloud mode requires an explicit build-time flag AND opt-in on every
+      // message. The backend itself rejects requests without provider secrets.
+      if(!AppConfig.aiEnabled)throw StateError('Cloud AI is disabled.');
+      final response=await Supabase.instance.client.functions.invoke('reach-assist',
+        body:<String,dynamic>{'message':message,'mode':mode,'history':previous});
+      final data=response.data;
+      if(data is! Map || data['answer'] is! String){
+        throw StateError('Cloud AI unavailable.');
+      }
+      if(mounted){
+        setState((){
+          history.add(_ReachAssistMessage('assistant',
+            data['answer'] as String,source:'cloud'));
+          cloudConsent=false;
+        });
+        moveDown();
+      }
+    }catch(_){
+      // Cloud failures never block a free local response.
+      if(mounted){
+        setState((){
+          history.add(_ReachAssistMessage('assistant',
+            ReachLocalAssist.respond(mode,message)));
+          errorText='Cloud AI is unavailable. Local smart tools answered instead. '
+            'No payment was requested.';
+          cloudMode=false;
+          cloudConsent=false;
+        });
+        moveDown();
       }
     }finally{
       if(mounted)setState(()=>responding=false);
@@ -137,7 +170,8 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
                 child:Row(mainAxisSize:MainAxisSize.min,children:[
                   Icon(Icons.auto_awesome,color:scheme.primary,size:17),
                   const SizedBox(width:5),
-                  Text('Reach Assist · AI',style:Theme.of(context).textTheme.labelMedium),
+                  Text(value.source=='cloud'?'Reach Assist · Cloud AI':'Reach Assist · Local tools',
+                    style:Theme.of(context).textTheme.labelMedium),
                 ])),
               SelectableText(value.text),
               if(!mine)Row(mainAxisSize:MainAxisSize.min,children:[
@@ -173,7 +207,7 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
         Expanded(child:Text('Reach Assist')),
       ]),
       actions:[
-        IconButton(tooltip:'Clear private AI conversation',
+        IconButton(tooltip:'Clear assistant conversation',
           icon:const Icon(Icons.delete_sweep_outlined),
           onPressed:history.isEmpty?null:(){
             setState((){
@@ -191,11 +225,32 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
             const Icon(Icons.lock_outline,size:20),
             const SizedBox(width:10),
             const Expanded(child:Text(
-              'Your private Reach chats and files are not read automatically. '
-              'Only the text you submit here goes to the AI provider.',
+              'Free local tools work offline: your text stays on this device. '
+              'No private chats or files are read automatically.',
               style:TextStyle(fontSize:12))),
           ]),
         )),
+      ),
+      if(AppConfig.aiEnabled)Padding(
+        padding:const EdgeInsets.symmetric(horizontal:15,vertical:4),
+        child:Column(children:[
+          SwitchListTile.adaptive(
+            contentPadding:EdgeInsets.zero,
+            title:const Text('Optional cloud AI'),
+            subtitle:const Text('Off by default. Local tools remain free.'),
+            value:cloudMode,
+            onChanged:(v)=>setState((){
+              cloudMode=v;
+              cloudConsent=false;
+            })),
+          if(cloudMode)CheckboxListTile(
+            contentPadding:EdgeInsets.zero,
+            title:const Text('Send only this message and up to six recent '
+              'assistant turns to the configured AI provider'),
+            subtitle:const Text('Do not include passwords, IDs or private chats.'),
+            value:cloudConsent,
+            onChanged:(v)=>setState(()=>cloudConsent=v??false)),
+        ]),
       ),
       SizedBox(height:47,child:ListView(
         scrollDirection:Axis.horizontal,
@@ -225,8 +280,8 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
               textAlign:TextAlign.center,
               style:Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height:7),
-            const Text('Draft better requests, translate, brainstorm, or '
-              'get guidance about staying safe online.',
+            const Text('Draft posts, polish writing, browse everyday '
+              'English–Urdu phrases, explore ideas and spot common risk patterns.',
               textAlign:TextAlign.center),
             const SizedBox(height:18),
             for(final example in hints[mode]??const <String>[])
@@ -242,7 +297,7 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
               const SizedBox(width:12,height:12,
                 child:CircularProgressIndicator(strokeWidth:2)),
               const SizedBox(width:10),
-              Text('Preparing an AI response…',
+              Text(cloudMode?'Contacting optional cloud AI…':'Preparing local response…',
                 style:Theme.of(context).textTheme.bodySmall),
             ]),
           ),
@@ -274,7 +329,7 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
           )),
           const SizedBox(width:5),
           IconButton.filled(
-            tooltip:'Send to Reach AI provider',
+            tooltip:cloudMode?'Send to optional cloud AI':'Run free local smart tool',
             onPressed:responding?null:submit,
             icon:const Icon(Icons.arrow_upward)),
         ]),
@@ -282,7 +337,9 @@ class _ReachAssistPageState extends State<ReachAssistPage> {
       Padding(
         padding:const EdgeInsets.fromLTRB(12,0,12,9),
         child:Text(
-          'AI can be inaccurate. Verify important information; nothing is posted automatically.',
+          cloudMode
+            ? 'Cloud AI can be inaccurate. Review results; no automatic posting.'
+            : 'Offline rule-based tools, not generative AI. Review results; nothing is posted.',
           textAlign:TextAlign.center,
           style:Theme.of(context).textTheme.labelSmall,
         ),
