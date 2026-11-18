@@ -12,6 +12,7 @@ import 'repository.dart';
 import 'push_service.dart';
 import 'reach_themes.dart';
 import 'chat_attachment_panel.dart';
+import 'business_studio.dart';
 
 late final ReachRepository reach;
 const categories = ['All','Technology','Learning','Career','Home & repairs','Sports','Creative','Local knowledge','Other'];
@@ -854,6 +855,13 @@ class ProfilePage extends StatelessWidget {
          underline:const SizedBox.shrink(),value:themeMode,
          items:ThemeMode.values.map((e)=>DropdownMenuItem(value:e,child:Text(e.name))).toList(),
          onChanged:(v){if(v!=null)onTheme(v);}),),
+     ListTile(leading:const Icon(Icons.business_center_outlined),
+       title:const Text('Reach for Business'),
+       subtitle:const Text('Apply for a professional profile · no charges'),
+       trailing:const Icon(Icons.chevron_right),
+       onTap:()=>Navigator.push(context,
+         MaterialPageRoute(builder:(_)=>const ReachBusinessStudio()))),
+     const Divider(height:1),
      ListTile(leading:const Icon(Icons.auto_awesome_outlined),
        title:const Text('Design studio · 10 full-app themes'),
        subtitle:Text('Current: ${reachLookById(lookId).name} · colors, cards, buttons and navigation'),
