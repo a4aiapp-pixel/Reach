@@ -83,10 +83,28 @@ jobs:
           Play credentials and release signing before public distribution.
           EOF
 
-      - name: Upload both Android APKs and SHA256 hashes
+      - name: Upload universal APK separately
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.0-Universal-and-ARM64-APK-connected
-          path: dist/
+          name: Reach-v1.0.0-Universal-APK
+          path: dist/Reach-v1.0.0-universal-connected.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload ARM64 APK separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reach-v1.0.0-ARM64-APK
+          path: dist/Reach-v1.0.0-arm64-v8a-connected.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload checksums and build notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reach-v1.0.0-Build-Checksums
+          path: |
+            dist/SHA256SUMS.txt
+            dist/README.txt
           if-no-files-found: error
           retention-days: 14
