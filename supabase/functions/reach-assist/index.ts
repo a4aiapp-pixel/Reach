@@ -44,7 +44,7 @@ Deno.serve(async (request:Request)=>{
   if(!body||typeof body!=='object')return reply({error:'Invalid request'},400);
   const prompt=typeof body.message==='string'?body.message.trim():'';
   const mode=typeof body.mode==='string'?body.mode:'chat';
-  const acceptedModes=['chat','draft','translate','safety','ideas'];
+  const acceptedModes=['chat','draft','polish','translate','safety','ideas'];
   if(prompt.length<1||prompt.length>1800||!acceptedModes.includes(mode)){
     return reply({error:'Enter a message of up to 1,800 characters'},400);
   }
@@ -74,6 +74,7 @@ Deno.serve(async (request:Request)=>{
   const directives:Record<string,string>={
     chat:'Answer clearly, adapt to the user language and avoid unnecessary verbosity.',
     draft:'Help write a concise, friendly, accurate Reach help request or offer. Do not invent credentials, emergency assistance or guarantees. Present text the user can review and post manually.',
+    polish:'Polish grammar, clarity and tone while preserving the exact underlying facts, dates, contact data and intended meaning. Return only the suggested wording unless caution is necessary.',
     translate:'Translate the user provided text faithfully. Preserve names and meaning; do not add invented details. Ask for the target language only if truly ambiguous.',
     safety:'Identify warning signs of fake identities, fraud, unsafe meetups or dangerous sharing. Give practical prevention advice, never guarantee safety.',
     ideas:'Suggest useful, lawful community initiatives and ways to find skills/help on Reach. Do not claim to know any nearby users or available offers.',
