@@ -226,7 +226,8 @@ class _AuthPageState extends State<AuthPage> {
             child:Padding(padding:const EdgeInsets.all(13),
               child:Text(signup?'Create account':'Sign in'))),
           gap(12),
-          OutlinedButton.icon(onPressed:loading?null:()=>action(reach.googleSignIn),
+          if(AppConfig.googleSignInEnabled)
+            OutlinedButton.icon(onPressed:loading?null:()=>action(reach.googleSignIn),
             icon:const Icon(Icons.account_circle_outlined),
             label:const Text('Continue with Google')),
           TextButton(onPressed:loading?null:()=>setState((){
