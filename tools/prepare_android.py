@@ -83,7 +83,7 @@ if os.environ.get('REACH_SIGNING_ENABLED') == '1':
         # Kotlin Gradle DSL can resolve `java` to a Project extension rather
         # than the Java package. Import the type explicitly before plugins{}.
         if 'import java.util.Properties' not in s:
-            s='import java.util.Properties\\n'+s
+            s='import java.util.Properties\n'+s
         block='''
 val reachSigningProperties = Properties().apply {
     rootProject.file("key.properties").inputStream().use { load(it) }
