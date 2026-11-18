@@ -138,9 +138,27 @@ class ReachRepository {
   }
 
   Future<List<Map<String, dynamic>>> circles() async {
-    final data = await client.rpc('my_circles');
+    final data = await client.rpc('my_communities');
     return (data as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
   }
+  Future<List<Map<String,dynamic>>> discoverCommunities({
+      String area = 'country', String category = 'All', String keyword = ''}) async {
+    final result = await client.rpc('discover_communities', params: {
+      'p_area': area, 'p_category': category, 'p_keyword': keyword.trim(),
+    });
+    return (result as List)
+      .map((r)=>Map<String,dynamic>.from(r as Map)).toList();
+  }
+  Future<void> createCommunity({required String name, required String category,
+      required String description, required bool isPublic}) async {
+    await client.rpc('create_community', params:{
+      'p_name':name.trim(), 'p_category':category,
+      'p_description':description.trim(),
+      'p_visibility':isPublic?'public':'private',
+    });
+  }
+  Future<void> joinPublicCommunity(String id) async =>
+      client.rpc('join_public_community', params: {'p_circle':id}).then((_) {});
   Future<void> createCircle(String name) async =>
       client.rpc('create_circle', params: {'p_name':name}).then((_) {});
   Future<void> joinCircle(String invite) async =>
