@@ -8,6 +8,6 @@ class AppConfig {
   static const aiEnabled = bool.fromEnvironment('ENABLE_REACH_AI',defaultValue:false);
   static const googleSignInEnabled = bool.fromEnvironment('ENABLE_GOOGLE_AUTH', defaultValue:false);
   static const appName = 'Reach';
-  static const legalBase = String.fromEnvironment('LEGAL_BASE_URL');
+  static const legalBase = String.fromEnvironment('LEGAL_BASE_URL', defaultValue: 'https://ffnhidnnqpamewcepxrr.supabase.co/functions/v1/reach-legal');
   static const supportEmail = String.fromEnvironment('SUPPORT_EMAIL');
 }

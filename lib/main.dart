@@ -540,7 +540,10 @@ Future<void> showReportDialog(BuildContext context,String type,String id) async 
         DropdownMenuItem(value:'spam',child:Text('Spam')),
         DropdownMenuItem(value:'harassment',child:Text('Harassment')),
         DropdownMenuItem(value:'unsafe',child:Text('Unsafe content')),
+        DropdownMenuItem(value:'child_safety',child:Text('Child safety / exploitation')),
+        DropdownMenuItem(value:'sexual_exploitation',child:Text('Sexual exploitation')),
         DropdownMenuItem(value:'fraud',child:Text('Fraud / impersonation')),
+        DropdownMenuItem(value:'impersonation',child:Text('Impersonation')),
         DropdownMenuItem(value:'other',child:Text('Other'))],
         onChanged:(v)=>setLocal(()=>reason=v??reason)),gap(12),
       TextField(controller:note,maxLines:3,maxLength:1000,decoration:const InputDecoration(labelText:'Details (optional)'))]),
@@ -924,7 +927,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.0.1 · Built for trust and usefulness',
+   ])),gap(18),Center(child:Text('Reach 1.0.2 · Built for trust and usefulness',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }

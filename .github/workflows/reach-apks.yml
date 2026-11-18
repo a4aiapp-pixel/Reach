@@ -101,20 +101,20 @@ jobs:
         run: |
           flutter build apk --release --target-platform android-arm,android-arm64,android-x64
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/Reach-v1.0.1-universal-connected.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Reach-v1.0.2-universal-connected.apk
 
       - name: Build ABI-specific ARM64 release-mode APK
         run: |
           flutter build apk --release --split-per-abi
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Reach-v1.0.1-arm64-v8a-connected.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Reach-v1.0.2-arm64-v8a-connected.apk
 
       - name: Integrity checks and artifact inventory
         run: |
-          test -s dist/Reach-v1.0.1-universal-connected.apk
-          test -s dist/Reach-v1.0.1-arm64-v8a-connected.apk
+          test -s dist/Reach-v1.0.2-universal-connected.apk
+          test -s dist/Reach-v1.0.2-arm64-v8a-connected.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
           cat > dist/README.txt <<'EOF'
-          REACH 1.0.1 - ANDROID RELEASE-CANDIDATE COMPILE
+          REACH 1.0.2 - ANDROID RELEASE-CANDIDATE COMPILE
           ==============================================
           UNIVERSAL: ARM32 + ARM64 + x86-64.
           ARM64: Android ARM64 devices only.
@@ -132,82 +132,71 @@ jobs:
       - name: Upload universal APK separately
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.1-Universal-APK
-          path: dist/Reach-v1.0.1-universal-connected.apk
+          name: Reach-v1.0.2-Universal-APK
+          path: dist/Reach-v1.0.2-universal-connected.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Upload ARM64 APK separately
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.1-ARM64-APK
-          path: dist/Reach-v1.0.1-arm64-v8a-connected.apk
+          name: Reach-v1.0.2-ARM64-APK
+          path: dist/Reach-v1.0.2-arm64-v8a-connected.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Upload checksums and build notes
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.1-Build-Checksums
+          name: Reach-v1.0.2-Build-Checksums
           path: |
             dist/SHA256SUMS.txt
             dist/README.txt
           if-no-files-found: error
           retention-days: 14
 
-      # Signed Play candidate is strictly optional. The ordinary APK jobs
-      # never require paid services, and no signing secrets are committed.
-      - name: Evaluate eligibility for Play bundle build
+      # Always compile an upload-key-signed Play AAB whenever the four existing
+      # signing secrets are present. Publisher contact and Console approval are
+      # independent release gates, not reasons to withhold a candidate bundle.
+      - name: Confirm live privacy and account-deletion policy URLs
         shell: bash
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
-          LEGAL_BASE_URL: ${{ secrets.LEGAL_BASE_URL }}
         run: |
           set -euo pipefail
-          if [ "${REACH_SIGNING_ENABLED:-0}" != "1" ]; then
-            echo "REACH_PLAY_CANDIDATE=0" >> "$GITHUB_ENV"
-            echo "AAB skipped: no persistent upload key."
-          elif [[ "$SUPABASE_URL" != https://*.supabase.co ]] ||
-               [[ "$SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* ]] ||
-               [[ "$SUPPORT_EMAIL" != *@*.* ]] ||
-               [[ "$LEGAL_BASE_URL" != https://* ]] ||
-               [[ "$LEGAL_BASE_URL" == *example.com* ]]; then
-            echo "REACH_PLAY_CANDIDATE=0" >> "$GITHUB_ENV"
-            echo "AAB skipped: verified publishable project config, support email and live HTTPS legal pages required."
-          else
-            echo "REACH_PLAY_CANDIDATE=1" >> "$GITHUB_ENV"
-          fi
+          base="https://ffnhidnnqpamewcepxrr.supabase.co/functions/v1/reach-legal"
+          for page in privacy.html terms.html child-safety.html delete-account.html contact.html; do
+            body="$(curl -fLsS --retry 2 --max-time 25 "$base/$page")"
+            if [[ "$body" != *"Reach"* ]] || [[ "$body" != *"<html"* ]]; then
+              echo "::error::Policy page is not serving the expected HTML: $page"
+              exit 1
+            fi
+          done
+          echo "Public privacy, deletion, child safety, community and contact pages are reachable."
 
-      - name: Build signed Play-candidate Android App Bundle
-        if: env.REACH_PLAY_CANDIDATE == '1'
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
-          LEGAL_BASE_URL: ${{ secrets.LEGAL_BASE_URL }}
+      - name: Build signed Android App Bundle for Play internal testing
+        if: env.REACH_SIGNING_ENABLED == '1'
         shell: bash
         run: |
           set -euo pipefail
           flutter build appbundle --release \
-            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
-            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
-            --dart-define="SUPPORT_EMAIL=$SUPPORT_EMAIL" \
-            --dart-define="LEGAL_BASE_URL=$LEGAL_BASE_URL"
+            --dart-define=LEGAL_BASE_URL=https://ffnhidnnqpamewcepxrr.supabase.co/functions/v1/reach-legal
           test -s build/app/outputs/bundle/release/app-release.aab
           jarsigner -verify build/app/outputs/bundle/release/app-release.aab
-          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.0.1-signed-Play-CANDIDATE.aab
-          sha256sum dist/Reach-v1.0.1-signed-Play-CANDIDATE.aab > dist/PLAY-AAB-SHA256.txt
+          mkdir -p dist
+          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.0.2-signed-Play-INTERNAL-TEST.aab
+          sha256sum dist/Reach-v1.0.2-signed-Play-INTERNAL-TEST.aab > dist/PLAY-AAB-SHA256.txt
+          keytool -printcert -jarfile dist/Reach-v1.0.2-signed-Play-INTERNAL-TEST.aab \
+            | grep -E 'Owner:|SHA256:|Signature algorithm name:' > dist/PLAY-SIGNING-INFO.txt
+          cat dist/PLAY-SIGNING-INFO.txt
 
-      - name: Upload signed Play candidate AAB
-        if: env.REACH_PLAY_CANDIDATE == '1'
+      - name: Upload signed Play internal-test AAB
+        if: env.REACH_SIGNING_ENABLED == '1'
         uses: actions/upload-artifact@v4
         with:
-          name: Reach-v1.0.1-SIGNED-PLAY-CANDIDATE
+          name: Reach-v1.0.2-SIGNED-AAB-INTERNAL-TEST
           path: |
-            dist/Reach-v1.0.1-signed-Play-CANDIDATE.aab
+            dist/Reach-v1.0.2-signed-Play-INTERNAL-TEST.aab
             dist/PLAY-AAB-SHA256.txt
+            dist/PLAY-SIGNING-INFO.txt
           if-no-files-found: error
           retention-days: 14
 

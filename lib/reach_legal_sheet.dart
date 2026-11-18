@@ -62,6 +62,16 @@ Future<void> showReachLegalSummary(BuildContext context) async {
               label:const Text('Full community rules'),
               onPressed:()=>launchUrl(Uri.parse('$base/terms.html'),
                 mode:LaunchMode.externalApplication)),
+            OutlinedButton.icon(
+              icon:const Icon(Icons.shield_outlined),
+              label:const Text('Child safety standards'),
+              onPressed:()=>launchUrl(Uri.parse('$base/child-safety.html'),
+                mode:LaunchMode.externalApplication)),
+            OutlinedButton.icon(
+              icon:const Icon(Icons.support_agent_outlined),
+              label:const Text('Contact support or report safety concern'),
+              onPressed:()=>launchUrl(Uri.parse('$base/contact.html'),
+                mode:LaunchMode.externalApplication)),
             TextButton(
               onPressed:()=>launchUrl(Uri.parse('$base/delete-account.html'),
                 mode:LaunchMode.externalApplication),
