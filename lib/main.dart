@@ -10,6 +10,7 @@ import 'config.dart';
 import 'models.dart';
 import 'repository.dart';
 import 'push_service.dart';
+import 'reach_themes.dart';
 
 late final ReachRepository reach;
 const categories = ['All','Technology','Learning','Career','Home & repairs','Sports','Creative','Local knowledge','Other'];
@@ -32,39 +33,40 @@ class ReachApp extends StatefulWidget {
 }
 class _ReachAppState extends State<ReachApp> {
   ThemeMode themeMode = ThemeMode.system;
+  String lookId = 'aurora';
   @override void initState(){super.initState(); _load();}
   Future<void> _load() async {
     final p=await SharedPreferences.getInstance();
     final v=p.getString('theme')??'system';
-    if(mounted) setState(()=>themeMode= v=='dark'?ThemeMode.dark:v=='light'?ThemeMode.light:ThemeMode.system);
+    final selected=p.getString('reach_visual_preset')??'aurora';
+    if(mounted) setState((){
+      themeMode=v=='dark'?ThemeMode.dark:v=='light'?ThemeMode.light:ThemeMode.system;
+      lookId=reachLookById(selected).id;
+    });
   }
   Future<void> _changeTheme(ThemeMode t) async {
     setState(()=>themeMode=t);
     final p=await SharedPreferences.getInstance();
     await p.setString('theme',t.name);
   }
+  Future<void> _changeLook(String next) async {
+    setState(()=>lookId=reachLookById(next).id);
+    final p=await SharedPreferences.getInstance();
+    await p.setString('reach_visual_preset',lookId);
+  }
   @override Widget build(BuildContext context){
-    final light=ThemeData(colorScheme:ColorScheme.fromSeed(seedColor:seed),useMaterial3:true,
-      scaffoldBackgroundColor: const Color(0xFFF8F9FD),
-      inputDecorationTheme:const InputDecorationTheme(border:OutlineInputBorder(
-        borderRadius:BorderRadius.all(Radius.circular(16))),contentPadding:EdgeInsets.symmetric(horizontal:16,vertical:14)),
-      cardTheme:CardThemeData(elevation:0,color:Colors.white,
-        shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(22))));
-    final dark=ThemeData(colorScheme:ColorScheme.fromSeed(seedColor:seed,brightness:Brightness.dark),useMaterial3:true,
-      scaffoldBackgroundColor: const Color(0xFF11111B),
-      inputDecorationTheme:const InputDecorationTheme(border:OutlineInputBorder(
-        borderRadius:BorderRadius.all(Radius.circular(16))),contentPadding:EdgeInsets.symmetric(horizontal:16,vertical:14)),
-      cardTheme:CardThemeData(elevation:0,
-        shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(22))));
+    final look=reachLookById(lookId);
+    final effectiveMode=themeMode==ThemeMode.system&&look.preferDark?ThemeMode.dark:themeMode;
     return MaterialApp(title:'Reach — Help, right when it matters',debugShowCheckedModeBanner:false,
-      theme:light,darkTheme:dark,themeMode:themeMode,
+      theme:look.build(Brightness.light),darkTheme:look.build(Brightness.dark),themeMode:effectiveMode,
       home: !AppConfig.ready ? const ConfigurationPage() :
         StreamBuilder<AuthState>(stream:Supabase.instance.client.auth.onAuthStateChange,
           builder:(context,snapshot){
             final session=Supabase.instance.client.auth.currentSession;
             if(session==null) return const AuthPage();
             if(snapshot.data?.event == AuthChangeEvent.passwordRecovery) return const PasswordRecoveryPage();
-            return ReachHome(onTheme:_changeTheme,themeMode:themeMode);
+            return ReachHome(onTheme:_changeTheme,themeMode:themeMode,
+              lookId:lookId,onLook:_changeLook);
           }),
     );
   }
@@ -88,9 +90,10 @@ class ConfigurationPage extends StatelessWidget {
 class ReachMark extends StatelessWidget {
   const ReachMark({super.key,this.size=50});final double size;
   @override Widget build(BuildContext context)=> Container(width:size,height:size,
-    decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF7873FF),Color(0xFF4D46D8)],begin:Alignment.topLeft,end:Alignment.bottomRight),
+    decoration:BoxDecoration(gradient:LinearGradient(colors:[Theme.of(context).colorScheme.primary,
+      Theme.of(context).colorScheme.secondary],begin:Alignment.topLeft,end:Alignment.bottomRight),
       borderRadius:BorderRadius.circular(size*.3)),
-    child:Icon(Icons.waving_hand_rounded,color:Colors.white,size:size*.52));
+    child:Icon(Icons.waving_hand_rounded,color:Theme.of(context).colorScheme.onPrimary,size:size*.52));
 }
 
 Future<T?> busy<T>(BuildContext context,Future<T> Function() work,{String? success}) async {
@@ -271,8 +274,10 @@ class _AuthPageState extends State<AuthPage> {
 }
 
 class ReachHome extends StatefulWidget {
-  const ReachHome({super.key,required this.onTheme,required this.themeMode});
+  const ReachHome({super.key,required this.onTheme,required this.themeMode,
+    required this.lookId,required this.onLook});
   final ValueChanged<ThemeMode> onTheme;final ThemeMode themeMode;
+  final String lookId;final ValueChanged<String> onLook;
   @override State<ReachHome> createState()=>_ReachHomeState();
 }
 class _ReachHomeState extends State<ReachHome>{
@@ -296,7 +301,8 @@ class _ReachHomeState extends State<ReachHome>{
     final pages=[DiscoverPage(key:ValueKey('discover$revision'),onCreated:refreshed),
       MinePage(key:ValueKey('mine$revision'),onCreated:refreshed),
       const InboxPage(),const CirclesPage(),
-      ProfilePage(profile:profile,onChanged:load,onTheme:widget.onTheme,themeMode:widget.themeMode)];
+      ProfilePage(profile:profile,onChanged:load,onTheme:widget.onTheme,themeMode:widget.themeMode,
+        lookId:widget.lookId,onLook:widget.onLook)];
     return Scaffold(body:IndexedStack(index:page,children:pages),
       bottomNavigationBar:NavigationBar(selectedIndex:page,onDestinationSelected:(i)=>setState(()=>page=i),
         labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,
@@ -413,9 +419,12 @@ class ReachCard extends StatelessWidget {
  const ReachCard({super.key,required this.post,required this.onTap,this.owner=false});
  final ReachPost post;final VoidCallback onTap;final bool owner;
  @override Widget build(BuildContext context){
-  final offering=post.kind=='offer';final foreground=offering?const Color(0xFF08887F):const Color(0xFFAD5C17);
-  final stateColor=offering?const Color(0xFFE8F8F5):const Color(0xFFFFF3E6);
-  return Card(margin:const EdgeInsets.only(bottom:12),child:InkWell(borderRadius:BorderRadius.circular(22),onTap:onTap,
+  final offering=post.kind=='offer';
+  final scheme=Theme.of(context).colorScheme;
+  final foreground=offering?scheme.onSecondaryContainer:scheme.onTertiaryContainer;
+  final stateColor=offering?scheme.secondaryContainer:scheme.tertiaryContainer;
+  return Card(margin:const EdgeInsets.only(bottom:12),child:InkWell(
+    customBorder:Theme.of(context).cardTheme.shape,onTap:onTap,
    child:Padding(padding:const EdgeInsets.all(17),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Row(children:[Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),
         decoration:BoxDecoration(color:stateColor,borderRadius:BorderRadius.circular(20)),
@@ -440,8 +449,9 @@ class ReachCard extends StatelessWidget {
     ]))));
  }
 }
-Widget miniTag(IconData i,String s)=>Row(mainAxisSize:MainAxisSize.min,children:[Icon(i,size:14,color:Colors.grey),const SizedBox(width:4),
-  Text(s,style:const TextStyle(fontSize:12,color:Colors.grey))]);
+Widget miniTag(IconData i,String s)=>Builder(builder:(context)=>Row(mainAxisSize:MainAxisSize.min,children:[
+  Icon(i,size:14,color:Theme.of(context).colorScheme.onSurfaceVariant),const SizedBox(width:4),
+  Text(s,style:TextStyle(fontSize:12,color:Theme.of(context).colorScheme.onSurfaceVariant))]));
 
 Future<void> showReachDetail(BuildContext context,ReachPost post,{VoidCallback? onChanged}) async {
  await showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,
@@ -532,7 +542,7 @@ class _MinePageState extends State<MinePage>{
   ]))),floatingActionButton:FloatingActionButton.extended(onPressed:()=>compose('offer'),
     icon:const Icon(Icons.add),label:const Text('New reach')));
  Widget _quickAction(BuildContext c,IconData i,String label,VoidCallback onTap)=>Card(child:InkWell(
-    borderRadius:BorderRadius.circular(22),onTap:onTap,child:Padding(padding:const EdgeInsets.all(20),
+    customBorder:Theme.of(c).cardTheme.shape,onTap:onTap,child:Padding(padding:const EdgeInsets.all(20),
       child:Column(children:[Icon(i,size:32,color:Theme.of(c).colorScheme.primary),gap(9),
        Text(label,style:const TextStyle(fontWeight:FontWeight.bold))]))));
  Future<void> compose(String type) async {
@@ -776,9 +786,10 @@ class _CirclesPageState extends State<CirclesPage>{
 
 class ProfilePage extends StatelessWidget {
  const ProfilePage({super.key,required this.profile,required this.onChanged,
-   required this.onTheme,required this.themeMode});
+   required this.onTheme,required this.themeMode,required this.lookId,required this.onLook});
  final Map<String,dynamic> profile;final VoidCallback onChanged;
  final ValueChanged<ThemeMode> onTheme;final ThemeMode themeMode;
+ final String lookId;final ValueChanged<String> onLook;
  @override Widget build(BuildContext context)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(18,16,18,45),children:[
    sectionHeader(context,'My profile',subtitle:'Your identity and privacy controls'),gap(12),
    Card(child:Padding(padding:const EdgeInsets.all(20),child:Row(children:[
@@ -822,6 +833,11 @@ class ProfilePage extends StatelessWidget {
          underline:const SizedBox.shrink(),value:themeMode,
          items:ThemeMode.values.map((e)=>DropdownMenuItem(value:e,child:Text(e.name))).toList(),
          onChanged:(v){if(v!=null)onTheme(v);}),),
+     ListTile(leading:const Icon(Icons.auto_awesome_outlined),
+       title:const Text('Design studio · 10 full-app themes'),
+       subtitle:Text('Current: ${reachLookById(lookId).name} · colors, cards, buttons and navigation'),
+       trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.push(context,
+         MaterialPageRoute(builder:(_)=>ReachThemeGallery(selected:lookId,onSelected:onLook)))),
      const Divider(height:1),
      ListTile(leading:const Icon(Icons.block_outlined),title:const Text('Blocked members'),
        trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.push(context,
