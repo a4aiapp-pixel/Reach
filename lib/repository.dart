@@ -169,6 +169,22 @@ class ReachRepository {
   Future<void> report(String targetType, String targetId, String reason, String detail) async =>
       client.from('reports').insert({'reporter_id':uid,'target_type':targetType,
         'target_id':targetId,'reason':reason,'detail':detail}).then((_) {});
-  Future<void> deleteAccount() async =>
-      client.rpc('delete_my_account').then((_) async {await client.auth.signOut();});
+  Future<void> deleteAccount() async {
+    final user=client.auth.currentUser;
+    if(user==null)throw StateError('Sign in before deleting your account.');
+    // Supabase Auth deletion cascades table metadata, but Storage files
+    // must be removed through the Storage API before the account is deleted.
+    final files=await client.from('chat_attachments')
+      .select('id').eq('sender_id',user.id).limit(1);
+    if(files.isNotEmpty){
+      final cleanup=await client.functions.invoke('cleanup-chat-attachments',
+        body:<String,dynamic>{});
+      final response=cleanup.data;
+      if(response is! Map || response['removed'] is! num){
+        throw StateError('Unable to delete private chat files. Try again.');
+      }
+    }
+    await client.rpc('delete_my_account');
+    await client.auth.signOut();
+  }
 }
