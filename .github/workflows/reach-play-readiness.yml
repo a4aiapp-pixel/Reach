@@ -1,0 +1,101 @@
+name: Reach Play - Public Endpoint and Auth Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/reach-play-readiness.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Check deployed public Reach release surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check policies, authenticated-only APIs and email settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,re,urllib.request,urllib.error
+          from pathlib import Path
+          cfg=Path('lib/config.dart').read_text()
+          url=re.search(r"static const url = String.fromEnvironment\('SUPABASE_URL', defaultValue: '([^']+)'",cfg).group(1)
+          key=re.search(r"static const key = String.fromEnvironment\('SUPABASE_PUBLISHABLE_KEY', defaultValue: '([^']+)'",cfg).group(1)
+          checks=[]
+          def hit(name,url,method='GET',body=None,headers=None,expect=None):
+              hd={'User-Agent':'Reach-Release-Readiness/1.0'}
+              if headers:hd.update(headers)
+              req=urllib.request.Request(url,method=method,headers=hd,
+                  data=None if body is None else json.dumps(body).encode())
+              try:
+                  with urllib.request.urlopen(req,timeout=22) as response:
+                      status=response.status; data=response.read(60000)
+              except urllib.error.HTTPError as ex:
+                  status=ex.code;data=ex.read(3000)
+              except Exception as ex:
+                  checks.append({'test':name,'pass':False,'http':None,'detail':type(ex).__name__})
+                  return None
+              ok=(200<=status<300) if expect is None else status in expect
+              checks.append({'test':name,'pass':ok,'http':status})
+              return data
+          policy_base=url+'/functions/v1/reach-legal/'
+          for page in ('index.html','privacy.html','terms.html','child-safety.html','delete-account.html','contact.html'):
+              body=hit('Policy '+page,policy_base+page)
+              if body is not None and not (b'<html' in body.lower() and b'Reach' in body):
+                  checks[-1]['pass']=False
+                  checks[-1]['detail']='Missing expected HTML'
+          js=hit('Hosted public deletion configuration',policy_base+'config.js')
+          manual=['Verified Play Console operator/legal identity', 'Working developer and child-safety email',
+                  'Live-device account deletion and user onboarding QA',
+                  'Auth redirect allowlist and production SMTP review',
+                  'Human UGC moderation and privacy retention',
+                  'Play Console Data safety, IARC and official closed testing as applicable']
+          if js is not None:
+              if b'REACH_PUBLIC_CONFIG' not in js or url.encode() not in js:
+                  checks[-1]['pass']=False;checks[-1]['detail']='Public config is inconsistent'
+              if b'operator identity pending' in js or b"supportEmail: ''" in js:
+                  checks.append({'test':'Verified publisher identity/contact','pass':None,
+                      'http':None,'detail':'PENDING REAL OPERATOR INPUT'})
+          apikey={'apikey':key}
+          hit('Supabase Auth health',url+'/auth/v1/health',headers=apikey)
+          settings=hit('Supabase Auth public settings',url+'/auth/v1/settings',headers=apikey)
+          if settings:
+              try:
+                  values=json.loads(settings)
+                  known={k:values.get(k) for k in ('mailer_autoconfirm','disable_signup')
+                      if k in values}
+                  checks.append({'test':'Auth public settings evidence','pass':None,
+                      'http':None,'detail':known})
+              except Exception:
+                  pass
+          hit('Anonymous support inbox isolation',url+'/rest/v1/reach_support_inbox?select=id',
+              headers=apikey,expect={400,401,403,404})
+          hit('Anonymous account deletion rejected',url+'/rest/v1/rpc/delete_my_account',
+              method='POST',body={},headers={**apikey,'Content-Type':'application/json'},
+              expect={400,401,403,404})
+          hit('Anonymous group creation rejected',url+'/rest/v1/rpc/create_community',
+              method='POST',body={'p_name':'x'},headers={**apikey,'Content-Type':'application/json'},
+              expect={400,401,403,404})
+          fails=[c for c in checks if c.get('pass') is False]
+          report={'app':'Reach','release':'1.0.5+6','type':'PUBLIC SMOKE ONLY',
+              'technical_result':'FAIL' if fails else 'PASS',
+              'checks':checks,'manual_go_live_gates':manual,
+              'important':'No real accounts were created or tested. Passing public endpoints does NOT establish Play production readiness.'}
+          Path('dist').mkdir(exist_ok=True)
+          Path('dist/REACH-PLAY-PUBLIC-READINESS.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          if fails: raise SystemExit('Public release smoke failed: see report.')
+          PY
+      - name: Upload read-only readiness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reach-v1.0.5-Public-Readiness
+          path: dist/REACH-PLAY-PUBLIC-READINESS.json
+          if-no-files-found: warn
+          retention-days: 14
