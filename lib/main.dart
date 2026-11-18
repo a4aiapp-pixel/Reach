@@ -1173,9 +1173,15 @@ class ProfilePage extends StatelessWidget {
        trailing:const Icon(Icons.chevron_right),
        onTap:()=>showReachLegalSummary(context)),
      const Divider(height:1),
-     ListTile(leading:const Icon(Icons.mail_outline),title:const Text('Support'),
-       subtitle:Text(AppConfig.supportEmail.isEmpty?'Configure support email before launch':AppConfig.supportEmail),
-       onTap:AppConfig.supportEmail.isEmpty?null:()=>launchUrl(Uri.parse('mailto:${AppConfig.supportEmail}?subject=Reach%20Support'))),
+     ListTile(leading:const Icon(Icons.support_agent_outlined),title:const Text('Reach support'),
+       subtitle:Text(AppConfig.supportEmail.isEmpty
+           ?'Questions, privacy or safety reports'
+           :AppConfig.supportEmail),
+       onTap:()=>launchUrl(
+         Uri.parse(AppConfig.supportEmail.isEmpty
+           ?'${AppConfig.legalBase}/contact.html'
+           :'mailto:${AppConfig.supportEmail}?subject=Reach%20Support'),
+         mode:LaunchMode.externalApplication)),
    ])),gap(14),
    Card(child:Column(children:[
      ListTile(leading:const Icon(Icons.logout),title:const Text('Sign out'),
@@ -1185,7 +1191,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.0.4 · Built for trust and usefulness',
+   ])),gap(18),Center(child:Text('Reach 1.0.5 · Built for trust and usefulness',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }
