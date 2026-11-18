@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'reach_call_preferences.dart';
 
 /// Foreground-only calling. Disabled in production unless ENABLE_REACH_CALLS
 /// is explicitly set by the release operator after two-device acceptance tests.
@@ -151,6 +152,13 @@ class _ReachCallScreenState extends State<ReachCallScreen>
   MediaStream? media;
   Timer? ringTimer;
   Timer? connectionTimer;
+  Timer? statsTimer,reconnectTimer,disconnectTimer;
+  final ReachCallPrefs prefs=ReachCallPrefs();
+  ReachLinkGrade linkGrade=ReachLinkGrade.unknown;
+  ReachVideoPlan? lastVideoPlan;
+  DateTime? lostConnectionAt;
+  int reconnectAttempts=0,weakSamples=0,strongSamples=0;
+  bool autoSuspendedVideo=false,measuring=false,negotiating=false;
   final List<RTCIceCandidate> pendingCandidates=[];
   int lastSignal=0;
   bool prepared=false,starting=false,offered=false,answered=false;
@@ -172,6 +180,7 @@ class _ReachCallScreenState extends State<ReachCallScreen>
 
   Future<void> _initialize()async {
     try{
+      await prefs.load();
       await local.initialize();
       await remote.initialize();
       rendererReady=true;
@@ -250,28 +259,43 @@ class _ReachCallScreenState extends State<ReachCallScreen>
       };
       pc!.onConnectionState=(value){
         if(finished||!mounted)return;
-        setState((){
-          if(value==RTCPeerConnectionState.RTCPeerConnectionStateConnected){
-            connectionEstablished=true;
-            state='Connected';connectionTimer?.cancel();
-          }else if(value==RTCPeerConnectionState.RTCPeerConnectionStateDisconnected){
-            state='Reconnecting…';
-          }else if(value==RTCPeerConnectionState.RTCPeerConnectionStateFailed){
-            state='Connection failed — try another network';
+        if(value==RTCPeerConnectionState.RTCPeerConnectionStateConnected){
+          connectionEstablished=true;
+          lostConnectionAt=null;
+          reconnectAttempts=0;
+          negotiating=false;
+          reconnectTimer?.cancel();
+          disconnectTimer?.cancel();
+          connectionTimer?.cancel();
+          if(mounted)setState(()=>state='Connected');
+          unawaited(_applyPlan(ReachVideoPlan.choose(prefs,linkGrade)));
+        }else if(value==RTCPeerConnectionState.RTCPeerConnectionStateDisconnected||
+                  value==RTCPeerConnectionState.RTCPeerConnectionStateFailed){
+          if(!prefs.reconnect){
+            unawaited(_end('end'));
+          }else{
+            connectionEstablished=false;
+            lostConnectionAt??=DateTime.now();
+            if(mounted)setState(()=>state='Reconnecting securely…');
+            disconnectTimer??=Timer(Duration(seconds:prefs.reconnectSeconds),(){
+              if(!finished&&!connectionEstablished)unawaited(_end('end'));
+            });
+            _scheduleReconnect();
           }
-        });
-        if(value==RTCPeerConnectionState.RTCPeerConnectionStateFailed){
-          unawaited(_end('end'));
         }
       };
       for(final track in media!.getTracks()){await pc!.addTrack(track,media!);}
+      if(video)await _applyPlan(ReachVideoPlan.choose(prefs,ReachLinkGrade.unknown));
       prepared=true;
       if(mounted)setState(()=>state='Connecting…');
       watchSignals=service.signals(callId).listen(
         (rows)=>unawaited(_processSignals(rows)),
         onError:(Object _)=>_fail('Call signaling disconnected'));
-      connectionTimer=Timer(const Duration(seconds:35),(){
+      connectionTimer=Timer(Duration(seconds:prefs.reconnectSeconds),(){
         if(!finished&&!connectionEstablished)unawaited(_end('end'));
+      });
+      statsTimer=Timer.periodic(const Duration(seconds:5),(_){
+        if(!finished&&connectionEstablished)unawaited(_inspectNetwork());
       });
       if(widget.caller){
         final offer=await pc!.createOffer();
@@ -311,6 +335,22 @@ class _ReachCallScreenState extends State<ReachCallScreen>
           await pc!.setRemoteDescription(RTCSessionDescription(sdp,'answer'));
           answered=true;
           await _flushCandidates();
+        }else if(kind=='restart_offer'&&!widget.caller){
+          final sdp=payload['sdp'] as String?;
+          if(sdp==null)continue;
+          await pc!.setRemoteDescription(RTCSessionDescription(sdp,'offer'));
+          await _flushCandidates();
+          final response=await pc!.createAnswer();
+          await pc!.setLocalDescription(response);
+          await service.signal(callId,peerId,'restart_answer',{
+            'sdp':response.sdp,'type':response.type
+          });
+        }else if(kind=='restart_answer'&&widget.caller){
+          final sdp=payload['sdp'] as String?;
+          if(sdp==null)continue;
+          await pc!.setRemoteDescription(RTCSessionDescription(sdp,'answer'));
+          negotiating=false;
+          await _flushCandidates();
         }else if(kind=='candidate'){
           final candidate=payload['candidate'] as String?;
           if(candidate==null)continue;
@@ -327,6 +367,126 @@ class _ReachCallScreenState extends State<ReachCallScreen>
     final candidates=List<RTCIceCandidate>.from(pendingCandidates);
     pendingCandidates.clear();
     for(final candidate in candidates){await pc?.addCandidate(candidate);}
+  }
+
+  /// Apply negotiated RTP sender settings to the current video track.
+  Future<void> _applyPlan(ReachVideoPlan plan)async {
+    if(!video||finished||pc==null)return;
+    if(identical(lastVideoPlan,plan))return;
+    try{
+      final senders=await pc!.getSenders();
+      for(final sender in senders){
+        if(sender.track?.kind!='video')continue;
+        final parameters=sender.parameters;
+        final encodings=parameters.encodings;
+        if(encodings==null||encodings.isEmpty)continue;
+        for(final encoding in encodings){
+          encoding.maxBitrate=plan.bitrate;
+          encoding.maxFramerate=plan.framesPerSecond;
+          encoding.scaleResolutionDownBy=plan.scale;
+        }
+        final applied=await sender.setParameters(parameters);
+        if(applied)lastVideoPlan=plan;
+      }
+    }catch(_){
+      // Encoder capabilities vary by device: keep the call alive even
+      // when RTP bitrate control is unsupported.
+    }
+  }
+
+  /// Health thresholds require repeated observations to prevent oscillation.
+  /// Values come from the active peer connection rather than guessed speed.
+  Future<void> _inspectNetwork()async{
+    if(measuring||finished||pc==null)return;
+    measuring=true;
+    try{
+      final reports=await pc!.getStats();
+      double? rate,rtt,loss;
+      for(final report in reports){
+        final values=report.values;
+        if(report.type=='candidate-pair'&&
+            (values['nominated']==true||values['selected']==true)){
+          final raw=values['availableOutgoingBitrate'];
+          if(raw is num)rate=raw.toDouble();
+          final rawRtt=values['currentRoundTripTime'];
+          if(rawRtt is num)rtt=rawRtt.toDouble()*1000;
+        }
+        if(report.type=='remote-inbound-rtp'){
+          final fraction=values['fractionLost'];
+          if(fraction is num)loss=fraction.toDouble()*100;
+          final rawRtt=values['roundTripTime'];
+          if(rtt==null&&rawRtt is num)rtt=rawRtt.toDouble()*1000;
+        }
+      }
+      final health=ReachLinkHealth(
+        availableBitrate:rate,rttMilliseconds:rtt,lossPercent:loss);
+      final newGrade=health.grade;
+      if(newGrade==ReachLinkGrade.unknown)return;
+      if(newGrade==ReachLinkGrade.poor){
+        weakSamples++;strongSamples=0;
+      }else if(newGrade==ReachLinkGrade.good){
+        strongSamples++;weakSamples=0;
+      }else{
+        strongSamples=0;weakSamples=0;
+      }
+      if(weakSamples>=2||strongSamples>=3||
+          (newGrade==ReachLinkGrade.fair&&newGrade!=linkGrade)){
+        linkGrade=newGrade;
+        if(mounted)setState((){});
+        await _applyPlan(ReachVideoPlan.choose(prefs,newGrade));
+      }
+      if(!video||!prefs.audioFallback)return;
+      final tracks=media?.getVideoTracks()??<MediaStreamTrack>[];
+      if(tracks.isEmpty)return;
+      if((weakSamples>=3||health.criticallyWeak)&&!autoSuspendedVideo){
+        autoSuspendedVideo=true;
+        for(final t in tracks){t.enabled=false;}
+        if(mounted)setState(()=>state='Low bandwidth · audio-first');
+      }else if(strongSamples>=3&&autoSuspendedVideo){
+        autoSuspendedVideo=false;
+        for(final t in tracks){t.enabled=!cameraOff;}
+        if(mounted)setState(()=>state='Video restored');
+      }
+    }catch(_){
+      // Stats may be briefly unavailable during handover.
+    }finally{measuring=false;}
+  }
+
+  void _scheduleReconnect(){
+    if(finished||pc==null||!widget.caller||!prefs.reconnect)return;
+    if(reconnectTimer?.isActive==true)return;
+    reconnectTimer=Timer(const Duration(seconds:3),(){
+      if(!finished)unawaited(_attemptReconnect());
+    });
+  }
+
+  Future<void> _attemptReconnect()async{
+    if(finished||pc==null||!prefs.reconnect||!widget.caller||
+       reconnectAttempts>=3||negotiating)return;
+    final lost=lostConnectionAt;
+    if(lost==null)return;
+    if(DateTime.now().difference(lost).inSeconds>=prefs.reconnectSeconds){
+      await _end('end');return;
+    }
+    reconnectAttempts++;
+    negotiating=true;
+    try{
+      await pc!.restartIce();
+      final offer=await pc!.createOffer({'iceRestart':true});
+      await pc!.setLocalDescription(offer);
+      await service.signal(callId,peerId,'restart_offer',{
+        'sdp':offer.sdp,'type':offer.type,
+      });
+      if(mounted)setState(()=>state='Reconnecting · attempt $reconnectAttempts/3');
+    }catch(_){
+      negotiating=false;
+    }
+    if(!finished&&!connectionEstablished&&reconnectAttempts<3){
+      reconnectTimer=Timer(const Duration(seconds:9),(){
+        negotiating=false;
+        unawaited(_attemptReconnect());
+      });
+    }
   }
 
   Future<void> switchCamera()async {
@@ -370,6 +530,7 @@ class _ReachCallScreenState extends State<ReachCallScreen>
     if(finished)return;
     finished=true;
     ringTimer?.cancel();connectionTimer?.cancel();
+    statsTimer?.cancel();reconnectTimer?.cancel();disconnectTimer?.cancel();
     unawaited(watchCall?.cancel()??Future<void>.value());
     unawaited(watchSignals?.cancel()??Future<void>.value());
     for(final track in media?.getTracks()??<MediaStreamTrack>[]) {track.stop();}
@@ -426,6 +587,11 @@ class _ReachCallScreenState extends State<ReachCallScreen>
                   objectFit:RTCVideoViewObjectFit.RTCVideoViewObjectFitCover))),
           ])),
           Text(state,style:Theme.of(context).textTheme.titleMedium),
+          if(prepared&&video&&!finished)Padding(
+            padding:const EdgeInsets.symmetric(vertical:5),
+            child:Text('Quality: ${prefs.quality.toUpperCase()} · '
+              '${linkGrade.name} network',
+              style:Theme.of(context).textTheme.labelSmall)),
           if(!widget.caller&&!starting&&!finished)...[
             const Padding(padding:EdgeInsets.all(12),
               child:Text('Microphone and camera access is requested only after you accept.',
@@ -452,7 +618,7 @@ class _ReachCallScreenState extends State<ReachCallScreen>
               if(video)IconButton.filledTonal(
                 tooltip:cameraOff?'Enable camera':'Disable camera',onPressed:(){
                   for(final track in media?.getVideoTracks()??<MediaStreamTrack>[]){
-                    track.enabled=cameraOff;
+                    track.enabled=cameraOff&&!autoSuspendedVideo;
                   }
                   setState(()=>cameraOff=!cameraOff);
                 },icon:Icon(cameraOff?Icons.videocam_off:Icons.videocam)),
