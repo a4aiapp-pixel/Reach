@@ -1,8 +1,8 @@
 # Reach — Android Community Help
 
-**Current release candidate: v1.0.2+3 (18 November 2026).**
+**Current release candidate: v1.0.3+4 (18 November 2026).**
 
-Reach provides permission-based community assistance: time-limited offers/requests, city/country/optional approximate nearby discovery, invitation circles, accepted connections and private chat. The default app also has report/block features, privacy controls, account deletion, and free rule-based on-device Reach Assist. Cloud AI, paid products, Google OAuth, background push, and voice/video calling are disabled by default until their separate release gates pass.
+Reach provides permission-based community assistance: time-limited offers/requests, city/country/optional approximate nearby discovery, invitation circles, searchable public groups, starter group templates, 23 topic categories, accepted connections and private chat. The default app also has report/block features, privacy controls, account deletion, and free rule-based on-device Reach Assist. Cloud AI, paid products, Google OAuth, background push, and voice/video calling are disabled by default until their separate release gates pass.
 
 The private repository has a persistent upload signing workflow that builds universal APK, ARM64 APK and, with the four GitHub signing secrets, a signed **internal-test** Android App Bundle. Automated analysis and Flutter tests run in Actions. Successful compilation is not equivalent to Play approval or physical-device tests.
 

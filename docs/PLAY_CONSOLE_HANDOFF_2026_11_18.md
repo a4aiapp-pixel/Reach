@@ -6,7 +6,7 @@
 
 - Display name: **Reach – Community Help**
 - Package/applicationId expected from Flutter generator: `app.reachnetwork.reach_network` (verify from the generated signed AAB/Play Console).
-- Launch version: `1.0.2` / versionCode `3`; later updates MUST increment versionCode and reuse the persistent upload key.
+- Launch version: `1.0.3` / versionCode `4`; later updates MUST increment versionCode and reuse the persistent upload key.
 - Android target: API 36 (Android 16).
 - Category: Social (community help); 18+ self-declared eligibility, not dating or matchmaking.
 - Primary language: English. In-app English/Urdu phrases are limited prewritten utilities, not full translation.
@@ -29,7 +29,7 @@ Live URL and web deletion need browser sign-in and real-account tests before sub
 
 Reach makes it easier to offer practical help, request support, and connect with people in your community.
 
-Discover time-limited offers and requests. Explore by city, country, or approximate nearby area when you choose to share location. Create invitation-based circles and send connection requests before starting a private conversation.
+Discover time-limited offers and requests. Explore by city, country, or approximate nearby area when you choose to share location. Join public topic groups, start groups from templates, create invitation-based circles and send connection requests before starting a private conversation.
 
 Stay in control with account privacy choices, blocking, reporting, and account deletion. Select from ten app themes and use free Reach Assist smart tools for help drafting messages, identifying basic scam warning signs, and looking up fixed English–Urdu phrases.
 
