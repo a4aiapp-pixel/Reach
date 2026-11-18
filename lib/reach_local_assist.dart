@@ -45,8 +45,9 @@ class ReachLocalAssist {
     };
     s=s.replaceAllMapped(RegExp(r"\b(pls|plz|thx|u|ur|im|dont|cant|wont|i)\b",caseSensitive:false),
       (m)=>simple[m.group(0)!.toLowerCase()]??m.group(0)!);
-    s=s.replaceAll(RegExp(r'\s+([,.!?;:])'),r'$1')
-      .replaceAll(RegExp(r'([,.!?;:])(?=[A-Za-z])'),r'$1 ');
+    s=s.replaceAllMapped(RegExp(r'\s+([,.!?;:])'),(m)=>m.group(1)!)
+      .replaceAllMapped(RegExp(r'([,.!?;:])(?=[A-Za-z])'),
+        (m)=>m.group(1)!+' ');
     if(s.isNotEmpty)s=s[0].toUpperCase()+s.substring(1);
     if(s.isNotEmpty&&!RegExp(r'[.!?]$').hasMatch(s))s='$s.';
     return s;
