@@ -4,9 +4,9 @@
 
 ## App identity and public links
 
-- Display name: **Reach – Community Help**
+- Display name: **Reach**
 - Package/applicationId expected from Flutter generator: `app.reachnetwork.reach_network` (verify from the generated signed AAB/Play Console).
-- Launch version: `1.0.4` / versionCode `5`; later updates MUST increment versionCode and reuse the persistent upload key.
+- Launch version: `1.0.5` / versionCode `6`; later updates MUST increment versionCode and reuse the persistent upload key.
 - Android target: API 36 (Android 16).
 - Category: Social (community help); 18+ self-declared eligibility, not dating or matchmaking.
 - Primary language: English. In-app English/Urdu phrases are limited prewritten utilities, not full translation.
@@ -21,7 +21,7 @@ Live URL and web deletion need browser sign-in and real-account tests before sub
 
 ## Store listing copy
 
-**App name**: Reach – Community Help
+**App name**: Reach
 
 **Short description**: Offer help, request support, and connect with your community.
 
@@ -70,4 +70,9 @@ For download use the individual artifacts shown in the latest successful workflo
 
 **Not yet done**: Google Play registration/submission, signed-AAB Play validation, contact identity, real device QA, confirmation of Auth URL settings and ongoing human moderation. Signed compilation is not Play approval.
 
-**Approved Play icon:** The three connected-person figures in a location pin supported by a hand. Download its versioned 512×512 PNG from the corresponding successful GitHub Actions v1.0.4 branding artifact. App name remains **Reach**.
+**Approved Play icon:** The three connected-person figures in a location pin supported by a hand. Download its versioned 512×512 PNG from the corresponding successful GitHub Actions v1.0.5 branding artifact. App name remains **Reach**.
+
+## Compiled-permission evidence (v1.0.5)
+The signed AAB now has an automated audit of the ACTUAL base Android manifest. Enabled by default: internet, network status as required by SDKs, and **optional foreground coarse location** for approximate discovery. The release build must reject dormant notifications, precise location, audio, Bluetooth and camera permissions. Review `PLAY-PERMISSION-AUDIT.json` attached to the new signed AAB artifact before upload. A permission audit is not a substitute for live-device behavior checks.
+
+**Current Play artwork:** official three-person pin icon from Reach v1.0.4 branding and separate 1024×500 feature graphic prepared for the launch pack. Genuine in-app screenshots remain outstanding until physical Android testing.
