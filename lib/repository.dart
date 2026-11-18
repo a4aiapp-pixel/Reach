@@ -37,8 +37,17 @@ class ReachRepository {
     await client.auth.setSession(data['refresh_token'] as String,
       accessToken: data['access_token'] as String);
   }
+  Future<void> verifySignupCode(String email, String code) async {
+    await client.auth.verifyOTP(type: OtpType.signup,
+      token: code.trim(), email: email.trim());
+  }
+  Future<void> resendSignup(String email) async {
+    await client.auth.resend(type: OtpType.signup,
+      email: email.trim(), emailRedirectTo: AppConfig.callback);
+  }
   Future<void> magicLink(String email) async =>
-      client.auth.signInWithOtp(email: email, emailRedirectTo: AppConfig.callback);
+      client.auth.signInWithOtp(email: email, emailRedirectTo: AppConfig.callback,
+        shouldCreateUser: false);
   Future<void> resetPassword(String email) async =>
       client.auth.resetPasswordForEmail(email, redirectTo: AppConfig.callback);
   Future<void> googleSignIn() async {
