@@ -6,7 +6,7 @@ input,button{padding:12px;font:inherit;border-radius:9px;box-sizing:border-box;m
 button{background:#6159e9;color:white;border:0;cursor:pointer}button:disabled{opacity:.5}label{display:block;margin-top:13px}
 small{color:#555}a{color:#534bcc}#status{white-space:pre-wrap}
 </style></head><body><main><h1>Reach — Delete your account</h1>
-<p>Delete your Reach account and associated profile, availability posts, circles, connection requests and chat messages. This is irreversible. You can also use Reach → Me → Delete my account.</p>
+<p>Delete your Reach account and associated profile, availability posts, circles, connection requests, chat messages and private chat attachments. This is irreversible. You can also use Reach → Me → Delete my account.</p>
 <p>Use the account's login credentials to authenticate this request. Do not enter a password on an untrusted domain. Google sign-in is supported if enabled by the operator.</p>
 <form id="login"><label>Email<input id="email" type="email" autocomplete="email" required></label>
 <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
@@ -25,7 +25,7 @@ if(!cfg||cfg.supabaseUrl.includes('YOUR_PROJECT')||cfg.supabasePublishableKey.in
 }else{
  const supabase=createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{auth:{flowType:'pkce',detectSessionInUrl:true}});
  const show=async()=>{const {data:{session}}=await supabase.auth.getSession();document.getElementById('login').hidden=!!session;
-  document.getElementById('google').hidden=!!session;document.getElementById('confirm').hidden=!session;};
+  document.getElementById('google').hidden=!!session||cfg.googleOAuthEnabled!==true;document.getElementById('confirm').hidden=!session;};
  document.getElementById('login').addEventListener('submit',async e=>{e.preventDefault();
  const {error}=await supabase.auth.signInWithPassword({email:document.getElementById('email').value,
  password:document.getElementById('password').value});status.textContent=error?error.message:'Signed in.';await show();});
@@ -35,6 +35,17 @@ if(!cfg||cfg.supabaseUrl.includes('YOUR_PROJECT')||cfg.supabasePublishableKey.in
  document.getElementById('delete').addEventListener('click',async()=>{
  if(document.getElementById('phrase').value!=='DELETE'){status.textContent='Type DELETE to confirm.';return;}
  if(!confirm('Permanently erase this Reach account and its related data?'))return;
+ const {data:{user},error:whoError}=await supabase.auth.getUser();
+ if(whoError||!user){status.textContent='Sign in again before deleting the account.';return;}
+ const {data:attachments,error:lookupError}=await supabase.from('chat_attachments')
+   .select('id').eq('sender_id',user.id).limit(1);
+ if(lookupError){status.textContent='Could not check private files. Try again.';return;}
+ if(attachments?.length){
+   const {data:cleanup,error:cleanupError}=await supabase.functions.invoke('cleanup-chat-attachments',{body:{}});
+   if(cleanupError||typeof cleanup?.removed!=='number'){
+     status.textContent='Could not remove private files. Please retry or contact support.';return;
+   }
+ }
  const {error}=await supabase.rpc('delete_my_account');
  if(error){status.textContent='Deletion failed: '+error.message;return;}
  await supabase.auth.signOut();status.textContent='Account deletion completed.';document.getElementById('confirm').hidden=true;
