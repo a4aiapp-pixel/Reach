@@ -13,6 +13,7 @@ import 'push_service.dart';
 import 'reach_themes.dart';
 import 'chat_attachment_panel.dart';
 import 'business_studio.dart';
+import 'reach_calling.dart';
 
 late final ReachRepository reach;
 const categories = ['All','Technology','Learning','Career','Home & repairs','Sports','Creative','Local knowledge','Other'];
@@ -745,6 +746,9 @@ class _ChatPageState extends State<ChatPage>{
           ]))));
        });
      })),
+    if(AppConfig.callingEnabled)ReachCallActions(
+      conversationId:widget.conversationId,peerId:widget.peerId,
+      peerName:widget.peerName),
     ChatAttachmentsPanel(conversationId:widget.conversationId),
     Container(padding:const EdgeInsets.fromLTRB(12,8,8,9),decoration:BoxDecoration(
       color:Theme.of(context).colorScheme.surface),
