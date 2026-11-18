@@ -96,11 +96,11 @@ class ConfigurationPage extends StatelessWidget {
 }
 class ReachMark extends StatelessWidget {
   const ReachMark({super.key,this.size=50});final double size;
-  @override Widget build(BuildContext context)=> Container(width:size,height:size,
-    decoration:BoxDecoration(gradient:LinearGradient(colors:[Theme.of(context).colorScheme.primary,
-      Theme.of(context).colorScheme.secondary],begin:Alignment.topLeft,end:Alignment.bottomRight),
-      borderRadius:BorderRadius.circular(size*.3)),
-    child:Icon(Icons.waving_hand_rounded,color:Theme.of(context).colorScheme.onPrimary,size:size*.52));
+  @override Widget build(BuildContext context)=>ClipRRect(
+    borderRadius:BorderRadius.circular(size*.24),
+    child:Image.asset('assets/branding/reach_selected_icon.webp',
+      width:size,height:size,fit:BoxFit.cover,filterQuality:FilterQuality.high,
+      semanticLabel:'Reach — three connected people in a location pin'));
 }
 
 Future<T?> busy<T>(BuildContext context,Future<T> Function() work,{String? success}) async {
@@ -1185,7 +1185,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.0.3 · Built for trust and usefulness',
+   ])),gap(18),Center(child:Text('Reach 1.0.4 · Built for trust and usefulness',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }
