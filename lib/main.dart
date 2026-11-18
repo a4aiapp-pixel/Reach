@@ -17,9 +17,10 @@ import 'reach_calling.dart';
 import 'reach_call_preferences.dart';
 import 'reach_assist.dart';
 import 'reach_legal_sheet.dart';
+import 'community_catalog.dart';
 
 late final ReachRepository reach;
-const categories = ['All','Technology','Learning','Career','Home & repairs','Sports','Creative','Local knowledge','Other'];
+// Categories and starter group templates are centralized in community_catalog.dart.
 const seed = Color(0xFF635CF4);
 final formatTime = DateFormat('d MMM · h:mm a');
 
@@ -329,7 +330,7 @@ class _ReachHomeState extends State<ReachHome>{
           NavigationDestination(icon:Icon(Icons.explore_outlined),selectedIcon:Icon(Icons.explore),label:'Discover'),
           NavigationDestination(icon:Icon(Icons.bolt_outlined),selectedIcon:Icon(Icons.bolt),label:'My Reach'),
           NavigationDestination(icon:Icon(Icons.chat_bubble_outline),selectedIcon:Icon(Icons.chat_bubble),label:'Inbox'),
-          NavigationDestination(icon:Icon(Icons.groups_outlined),selectedIcon:Icon(Icons.groups),label:'Circles'),
+          NavigationDestination(icon:Icon(Icons.groups_outlined),selectedIcon:Icon(Icons.groups),label:'Groups'),
           NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Me'),
         ]));
   }
@@ -777,55 +778,312 @@ class _ChatPageState extends State<ChatPage>{
    ])));
 }
 
-class CirclesPage extends StatefulWidget{const CirclesPage({super.key});@override State<CirclesPage> createState()=>_CirclesPageState();}
-class _CirclesPageState extends State<CirclesPage>{
- bool loading=true;List<Map<String,dynamic>> circles=[];
+class CirclesPage extends StatefulWidget {
+ const CirclesPage({super.key});
+ @override State<CirclesPage> createState()=>_CirclesPageState();
+}
+class _CirclesPageState extends State<CirclesPage> {
+ bool loading=true;
+ String area='country',topic='All';
+ List<Map<String,dynamic>> circles=[],publicGroups=[];
+ final search=TextEditingController();
+ Timer? searchDebounce;
+ int requestSerial=0;
+
  @override void initState(){super.initState();refresh();}
- Future<void> refresh()async{final c=await busy(context,reach.circles);if(mounted)setState((){
-   if(c!=null)circles=c;loading=false;});}
- Future<void> newCircle()async{
-   final name=await askText(context,title:'Create private circle',hint:'e.g. Neighborhood volunteers');
-   if(name!=null&&name.length>=3&&mounted)await busy(context,()async{await reach.createCircle(name);await refresh();},success:'Private circle created');
+ @override void dispose(){
+   searchDebounce?.cancel();
+   search.dispose();
+   super.dispose();
  }
- Future<void> join()async{
-   final code=await askText(context,title:'Join a circle',hint:'Enter invitation code');
-   if(code!=null&&code.isNotEmpty&&mounted)await busy(context,()async{await reach.joinCircle(code);await refresh();},success:'Circle joined');
+ Future<void> refresh() async {
+   final ticket=++requestSerial;
+   if(mounted)setState(()=>loading=true);
+   final data=await busy(context,() async => <String,dynamic>{
+     'mine': await reach.circles(),
+     'public': await reach.discoverCommunities(
+        area:area,category:topic,keyword:search.text),
+   });
+   if(mounted && ticket==requestSerial) {
+     setState(() {
+       if(data!=null) {
+         circles=(data['mine'] as List).cast<Map<String,dynamic>>();
+         publicGroups=(data['public'] as List).cast<Map<String,dynamic>>();
+       }
+       loading=false;
+     });
+   }
  }
- @override Widget build(BuildContext context)=>SafeArea(child:RefreshIndicator(onRefresh:refresh,child:
-  ListView(padding:const EdgeInsets.fromLTRB(18,17,18,40),children:[
-   sectionHeader(context,'My circles',subtitle:'Your private, trusted communities'),
-   Row(children:[Expanded(child:FilledButton.icon(onPressed:newCircle,icon:const Icon(Icons.add),label:const Text('Create circle'))),
-     const SizedBox(width:10),Expanded(child:OutlinedButton.icon(onPressed:join,
-       icon:const Icon(Icons.group_add_outlined),label:const Text('Join circle')))]),gap(14),
-   Card(child:Padding(padding:const EdgeInsets.all(16),child:Row(children:[
-     const Icon(Icons.lock_outline),const SizedBox(width:10),
-     Expanded(child:Text('Circle-only posts are visible to members. Invitation codes should be shared only with people you trust.',
-       style:Theme.of(context).textTheme.bodySmall))]))),gap(14),
-   if(loading)const Center(child:CircularProgressIndicator())
-   else if(circles.isEmpty)emptyState(context,Icons.groups_outlined,'No circles yet',
-     'Start with your classmates, coworkers, or local community.')
-   else ...circles.map((c)=>Card(child:Padding(padding:const EdgeInsets.all(8),child:Column(children:[
-     ListTile(leading:CircleAvatar(child:Text(str(c['name']).characters.first.toUpperCase())),
-       title:Text(str(c['name']),style:const TextStyle(fontWeight:FontWeight.bold)),
-       subtitle:Text('${c['member_count']} members · ${c['owner_id']==reach.uid?'Owner':'Member'}')),
-     Row(children:[Expanded(child:Text('Invite: ${c['invite_code']}',
-        textAlign:TextAlign.center,style:Theme.of(context).textTheme.bodySmall)),
-       TextButton.icon(onPressed:()=>SharePlus.instance.share(ShareParams(
-         text:'Join my private Reach circle “${c['name']}”. Install Reach and enter code: ${c['invite_code']}')),
-         icon:const Icon(Icons.share_outlined,size:17),label:const Text('Invite')),
-       if(c['owner_id']==reach.uid)IconButton(tooltip:'Delete circle',onPressed:()async{
-         final confirmed=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
-            title:const Text('Delete this circle?'),content:const Text('Members, circle posts and related chats will be removed. This cannot be undone.'),
-            actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')),
-              FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('Delete'))]));
-         if(confirmed==true && mounted)await busy(context,()async{await reach.deleteCircle(str(c['id']));await refresh();},
-             success:'Circle deleted');
-       },icon:const Icon(Icons.delete_outline,size:18)),
-       if(c['owner_id']!=reach.uid)IconButton(tooltip:'Leave circle',onPressed:()async{
-         await busy(context,()async {await reach.leaveCircle(str(c['id']));await refresh();});
-       },icon:const Icon(Icons.logout,size:18)),
-     ])])))),
-  ])));
+
+ Future<void> createGroup({CommunityTemplate? template}) async {
+   final name=TextEditingController(text:template?.name??'');
+   final description=TextEditingController(text:template?.description??'');
+   final form=GlobalKey<FormState>();
+   String category=template?.category??'Community & volunteering';
+   bool isPublic=true;
+   final result=await showDialog<Map<String,dynamic>>(
+     context:context,builder:(ctx)=>StatefulBuilder(builder:(ctx,change)=>AlertDialog(
+       title:Text(template==null?'Create a group':'Start ${template.name}'),
+       content:SizedBox(width:430,child:Form(key:form,child:SingleChildScrollView(
+         child:Column(mainAxisSize:MainAxisSize.min,children:[
+           const Text('Choose a topic and who can discover this group. '
+             'These are new real member-run groups, not automatic fake communities.'),
+           gap(15),
+           TextFormField(controller:name,maxLength:70,
+             textCapitalization:TextCapitalization.words,
+             decoration:const InputDecoration(labelText:'Group name'),
+             validator:(v)=>((v??'').trim().length<3)
+                ?'Use at least 3 characters':null),
+           TextFormField(controller:description,maxLength:240,maxLines:3,
+             decoration:const InputDecoration(labelText:'What is this group for?')),
+           DropdownButtonFormField<String>(isExpanded:true,initialValue:category,
+             decoration:const InputDecoration(labelText:'Activity / topic'),
+             items:categories.where((x)=>x!='All').map((x)=>
+               DropdownMenuItem(value:x,child:Text(x,overflow:TextOverflow.ellipsis))).toList(),
+             onChanged:(v)=>change(()=>category=v??category)),
+           SwitchListTile.adaptive(contentPadding:EdgeInsets.zero,
+             title:Text(isPublic?'Public group':'Private invitation circle'),
+             subtitle:Text(isPublic
+                 ?'Members can find and join. Group posts remain member-only.'
+                 :'Only people with your invite code can join.'),
+             value:isPublic,onChanged:(v)=>change(()=>isPublic=v)),
+         ])))),
+       actions:[
+         TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cancel')),
+         FilledButton(onPressed:(){
+           if(!form.currentState!.validate())return;
+           Navigator.pop(ctx,{
+             'name':name.text.trim(),'description':description.text.trim(),
+             'category':category,'public':isPublic
+           });
+         },child:const Text('Create group'))
+       ],
+     )));
+   name.dispose();description.dispose();
+   if(result==null||!mounted)return;
+   await busy(context,()async{
+     await reach.createCommunity(
+       name:result['name'] as String,category:result['category'] as String,
+       description:result['description'] as String,
+       isPublic:result['public'] as bool);
+     await refresh();
+   },success:'Group created. You are its owner and first member.');
+ }
+ Future<void> joinInvite() async {
+   final code=await askText(context,title:'Join a private circle',
+      hint:'Enter its invitation code');
+   if(code!=null&&code.isNotEmpty&&mounted){
+     await busy(context,()async{
+       await reach.joinCircle(code);
+       await refresh();
+     },success:'Invitation accepted. Welcome to the circle.');
+   }
+ }
+ Future<void> joinPublic(String id) async {
+   await busy(context,()async{
+     await reach.joinPublicCommunity(id);
+     await refresh();
+   },success:'Joined the group. Find member-only posts in Discover.');
+ }
+ Future<void> leaveOrDelete(Map<String,dynamic> c) async {
+   final owner=c['owner_id']==reach.uid;
+   final confirmed=await showDialog<bool>(context:context,builder:(ctx)=>
+     AlertDialog(
+       title:Text(owner?'Delete this group?':'Leave this group?'),
+       content:Text(owner
+         ?'Deleting also removes group posts and related conversations. This cannot be undone.'
+         :'You can rejoin a public group later, or use a private invite code.'),
+       actions:[
+         TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')),
+         FilledButton(onPressed:()=>Navigator.pop(ctx,true),
+           child:Text(owner?'Delete':'Leave'))
+       ],
+     ));
+   if(confirmed!=true||!mounted)return;
+   await busy(context,()async{
+     if(owner){await reach.deleteCircle(str(c['id']));}
+     else {await reach.leaveCircle(str(c['id']));}
+     await refresh();
+   },success:owner?'Group deleted':'Left the group');
+ }
+
+ Widget publicCard(Map<String,dynamic> g){
+   final member=g['is_member']==true,owner=g['owner_id']==reach.uid;
+   final id=str(g['id']);
+   return Card(margin:const EdgeInsets.symmetric(vertical:5),
+     child:Padding(padding:const EdgeInsets.all(14),child:Column(
+       crossAxisAlignment:CrossAxisAlignment.start,children:[
+         Row(children:[
+           CircleAvatar(child:Icon(Icons.groups_rounded,
+             color:Theme.of(context).colorScheme.onPrimaryContainer)),
+           const SizedBox(width:12),
+           Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+             children:[
+               Text(str(g['name']),maxLines:2,overflow:TextOverflow.ellipsis,
+                 style:Theme.of(context).textTheme.titleMedium?.copyWith(
+                   fontWeight:FontWeight.w800)),
+               Text('${g['category']} · ${g['member_count']} members',
+                 style:Theme.of(context).textTheme.bodySmall),
+             ])),
+           if(!owner)PopupMenuButton<String>(
+             tooltip:'Group safety',
+             onSelected:(v) async {
+               if(v=='report')await showReportDialog(context,'group',id);
+               if(v=='block')await confirmBlock(context,str(g['owner_id']),
+                 'this group owner');
+               if(mounted)refresh();
+             },itemBuilder:(_)=>const [
+               PopupMenuItem(value:'report',child:Text('Report this group')),
+               PopupMenuItem(value:'block',child:Text('Block group owner'))
+             ]),
+         ]),
+         if(str(g['description']).isNotEmpty)...[
+           gap(9),Text(str(g['description']),maxLines:3,
+              overflow:TextOverflow.ellipsis)],
+         gap(11),
+         Row(children:[
+           Expanded(child:Text('${g['city']}, ${g['country']}',
+             maxLines:1,overflow:TextOverflow.ellipsis,
+             style:Theme.of(context).textTheme.bodySmall)),
+           member?FilledButton.tonalIcon(
+               onPressed:null,icon:const Icon(Icons.check_circle_outline),
+               label:const Text('Joined'))
+             :FilledButton.icon(onPressed:()=>joinPublic(id),
+               icon:const Icon(Icons.group_add_outlined),
+               label:const Text('Join'))
+         ])
+       ])));
+ }
+
+ Widget privateOrJoinedCard(Map<String,dynamic> c){
+   final owner=c['owner_id']==reach.uid;
+   final isPublic=c['visibility']=='public';
+   final name=str(c['name']);
+   return Card(margin:const EdgeInsets.symmetric(vertical:5),
+     child:Padding(padding:const EdgeInsets.all(13),child:Column(
+       crossAxisAlignment:CrossAxisAlignment.start,children:[
+         Row(children:[
+           CircleAvatar(child:Icon(isPublic
+             ?Icons.public_rounded:Icons.lock_outline)),
+           const SizedBox(width:10),
+           Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+             children:[
+               Text(name,style:Theme.of(context).textTheme.titleMedium?.copyWith(
+                 fontWeight:FontWeight.w800)),
+               Text('${c['category']} · ${c['member_count']} members · '
+                 '${owner?'Owner':'Member'}',
+                 style:Theme.of(context).textTheme.bodySmall)
+             ])),
+           IconButton(tooltip:owner?'Delete group':'Leave group',
+             onPressed:()=>leaveOrDelete(c),
+             icon:Icon(owner?Icons.delete_outline:Icons.logout_rounded)),
+         ]),
+         if(str(c['description']).isNotEmpty)...[
+           gap(6),Text(str(c['description']),
+             style:Theme.of(context).textTheme.bodyMedium)],
+         gap(8),
+         if(isPublic)const Text('Publicly discoverable · posts visible to members',
+             style:TextStyle(fontSize:12))
+         else Row(children:[
+           Expanded(child:SelectableText('Invite code: ${c['invite_code']}',
+             style:Theme.of(context).textTheme.bodySmall)),
+           IconButton(tooltip:'Share invite code',icon:const Icon(Icons.share_outlined),
+             onPressed:()=>SharePlus.instance.share(ShareParams(
+               text:'Join my private Reach circle “$name”. Code: ${c['invite_code']}'))),
+         ]),
+       ])));
+ }
+
+ @override Widget build(BuildContext context)=>SafeArea(
+   child:RefreshIndicator(onRefresh:refresh,child:ListView(
+     padding:const EdgeInsets.fromLTRB(18,16,18,42),children:[
+       sectionHeader(context,'Groups & circles',
+         subtitle:'Discover shared interests or build a trusted space'),
+       gap(9),
+       Row(children:[
+         Expanded(child:FilledButton.icon(onPressed:()=>createGroup(),
+            icon:const Icon(Icons.add_circle_outline),label:const Text('Create group'))),
+         const SizedBox(width:8),
+         Expanded(child:OutlinedButton.icon(onPressed:joinInvite,
+            icon:const Icon(Icons.key_outlined),label:const Text('Join by code')))
+       ]),
+       gap(18),
+       sectionHeader(context,'Start with a group idea',
+         subtitle:'Templates only · groups exist when someone creates them'),
+       gap(8),
+       SizedBox(height:156,child:ListView.separated(
+         scrollDirection:Axis.horizontal,
+         itemCount:communityTemplates.length,
+         separatorBuilder:(_,__)=>const SizedBox(width:10),
+         itemBuilder:(ctx,i){
+           final t=communityTemplates[i];
+           return SizedBox(width:205,child:Card(
+             child:InkWell(
+               borderRadius:BorderRadius.circular(14),
+               onTap:()=>createGroup(template:t),
+               child:Padding(padding:const EdgeInsets.all(13),
+                 child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                   children:[
+                     Icon(t.icon,size:25,color:Theme.of(ctx).colorScheme.primary),
+                     gap(8),
+                     Text(t.name,maxLines:1,overflow:TextOverflow.ellipsis,
+                       style:Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                         fontWeight:FontWeight.bold)),
+                     gap(5),
+                     Expanded(child:Text(t.description,maxLines:2,
+                       overflow:TextOverflow.ellipsis,
+                       style:Theme.of(ctx).textTheme.bodySmall)),
+                     Text('Start this group',
+                       style:TextStyle(color:Theme.of(ctx).colorScheme.primary,
+                         fontWeight:FontWeight.w700,fontSize:12)),
+                   ])))),
+           );
+         })),
+       gap(21),
+       sectionHeader(context,'Explore public groups',
+         subtitle:'Join real member-run groups; their posts stay members-only'),
+       gap(8),
+       TextField(controller:search,
+         onChanged:(_){
+           searchDebounce?.cancel();
+           searchDebounce=Timer(const Duration(milliseconds:450),refresh);
+         },
+         decoration:const InputDecoration(
+           hintText:'Search public groups',
+           prefixIcon:Icon(Icons.search_rounded))),
+       gap(8),
+       SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
+         for(final t in const {'city':'My city','country':'My country',
+             'global':'Worldwide'}.entries)
+           Padding(padding:const EdgeInsets.only(right:7),
+             child:ChoiceChip(label:Text(t.value),selected:area==t.key,
+               onSelected:(_){setState(()=>area=t.key);refresh();}))
+       ])),
+       gap(6),
+       DropdownButtonFormField<String>(key:ValueKey('group-topic-$topic'),
+         initialValue:topic,isExpanded:true,
+         decoration:const InputDecoration(labelText:'Topic',isDense:true),
+         items:categories.map((x)=>DropdownMenuItem(value:x,
+            child:Text(x,overflow:TextOverflow.ellipsis))).toList(),
+         onChanged:(v){setState(()=>topic=v??'All');refresh();}),
+       gap(10),
+       if(loading)const Padding(padding:EdgeInsets.all(22),
+         child:Center(child:CircularProgressIndicator()))
+       else if(publicGroups.isEmpty)Card(child:Padding(
+           padding:const EdgeInsets.all(18),
+           child:const Text('No public groups match yet. Start one from a template '
+             'or try another topic or area.')))
+       else ...publicGroups.map(publicCard),
+       gap(23),
+       sectionHeader(context,'My groups',
+         subtitle:'Private invite circles and public groups you joined'),
+       gap(10),
+       if(!loading && circles.isEmpty)Card(child:Padding(
+         padding:const EdgeInsets.all(18),
+         child:const Text('No groups joined yet. Create one above or join '
+             'a trusted circle by invitation code.')))
+       else if(!loading)...circles.map(privateOrJoinedCard),
+     ])));
 }
 
 class ProfilePage extends StatelessWidget {
