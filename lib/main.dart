@@ -346,8 +346,8 @@ class _ProfileSetupState extends State<ProfileSetup>{
    const ReachMark(),gap(20),Text('Make Reach yours',style:Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight:FontWeight.bold)),
    const Text('Your city and country help discover relevant offers. You can use Reach without GPS.'),gap(20),
    TextField(controller:name,textCapitalization:TextCapitalization.words,decoration:const InputDecoration(labelText:'Display name (optional)')),
-   gap(12),ReachCityField(controller:city,country:country),
    gap(12),ReachCountryField(controller:country),
+   gap(12),ReachCityField(controller:city,country:country),
    gap(12),CheckboxListTile(value:agree,onChanged:(v)=>setState(()=>agree=v??false),
      title:const Text('I am 18 or older and accept the community rules and privacy policy.'),
      subtitle:const Text('No harassment, fraud, unsafe requests, unwanted contacts, or impersonation.')),
@@ -1237,8 +1237,8 @@ class _EditProfilePageState extends State<EditProfilePage>{
         decoration:const InputDecoration(labelText:'Skills or credentials (self-declared)',
           hintText:'Excel, plumbing, mathematics, design')),
       gap(10),
-      ReachCityField(controller:city,country:country),
       ReachCountryField(controller:country),
+      ReachCityField(controller:city,country:country),
       gap(18),
       FilledButton(onPressed:saving?null:() async{
         final handle=username.text.trim().toLowerCase();
