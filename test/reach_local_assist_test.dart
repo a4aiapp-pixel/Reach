@@ -36,6 +36,18 @@ void main() {
     expect(result,contains('not arbitrary machine translation'));
     expect(result,contains('شکریہ'));
   });
+  test('Offline help center answers app-specific questions without a server', () {
+    expect(ReachLocalAssist.guidance('How do I share files?'),
+      contains('6 MB'));
+    expect(ReachLocalAssist.guidance('How can I choose a theme?'),
+      contains('Design studio'));
+    expect(ReachLocalAssist.guidance('How do I verify email?'),
+      contains('verification'));
+    expect(ReachLocalAssist.guidance('Can I use AI for free?'),
+      contains('free local smart tools'));
+    expect(ReachLocalAssist.guidance('I need to delete my account'),
+      contains('Delete my account'));
+  });
   test('General guidance does not claim access to live matches', () {
     final result=ReachLocalAssist.guidance('Find people nearby now');
     expect(result,contains('no network AI'));
