@@ -38,8 +38,8 @@ class ReachLook {
       displaySmall:TextStyle(fontFamily:font,fontSize:compact?30:36,
         fontWeight:serif?FontWeight.w600:FontWeight.w800,letterSpacing:serif?-1.3:-.8),
       headlineSmall:TextStyle(fontFamily:font,fontSize:compact?22:26,
-        fontWeight:FontWeight.w750,letterSpacing:-.5),
-      titleLarge:TextStyle(fontFamily:font,fontWeight:FontWeight.w750,
+        fontWeight:FontWeight.w700,letterSpacing:-.5),
+      titleLarge:TextStyle(fontFamily:font,fontWeight:FontWeight.w700,
         letterSpacing:condensed?.3:-.3),
     );
     return ThemeData(
