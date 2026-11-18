@@ -11,6 +11,11 @@ on:
       - "pubspec.yaml"
       - ".github/workflows/reach-apks.yml"
 
+# Avoid multiple expensive private-repository builds after rapid source updates.
+concurrency:
+  group: reach-android-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -108,3 +113,84 @@ jobs:
             dist/README.txt
           if-no-files-found: error
           retention-days: 14
+
+      # Signed Play candidate is strictly optional. The ordinary APK jobs
+      # never require paid services, and no signing secrets are committed.
+      - name: Check readiness of signed Play candidate
+        shell: bash
+        env:
+          PLAY_KEYSTORE_B64: ${{ secrets.PLAY_KEYSTORE_B64 }}
+          PLAY_KEYSTORE_PASS: ${{ secrets.PLAY_KEYSTORE_PASS }}
+          PLAY_KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
+          PLAY_KEY_PASS: ${{ secrets.PLAY_KEY_PASS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          LEGAL_BASE_URL: ${{ secrets.LEGAL_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PLAY_KEYSTORE_B64" ] && [ -z "$PLAY_KEYSTORE_PASS" ] &&
+             [ -z "$PLAY_KEY_ALIAS" ] && [ -z "$PLAY_KEY_PASS" ]; then
+            echo "Signed AAB skipped: secure Play upload key has not been configured."
+            echo "REACH_PLAY_CANDIDATE=0" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          for variable in PLAY_KEYSTORE_B64 PLAY_KEYSTORE_PASS PLAY_KEY_ALIAS PLAY_KEY_PASS SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPPORT_EMAIL LEGAL_BASE_URL; do
+            if [ -z "${!variable}" ]; then
+              echo "::error::Incomplete Play upload configuration: missing $variable"
+              exit 1
+            fi
+          done
+          mkdir -p android/app
+          printf '%s' "$PLAY_KEYSTORE_B64" | base64 --decode > android/app/upload-key.jks
+          {
+            echo "storeFile=upload-key.jks"
+            printf 'storePassword=%s\n' "$PLAY_KEYSTORE_PASS"
+            printf 'keyAlias=%s\n' "$PLAY_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$PLAY_KEY_PASS"
+          } > android/key.properties
+          chmod 600 android/key.properties android/app/upload-key.jks
+          echo "REACH_PLAY_CANDIDATE=1" >> "$GITHUB_ENV"
+
+      - name: Apply signed AAB setup
+        if: env.REACH_PLAY_CANDIDATE == '1'
+        env:
+          REACH_SIGNING_ENABLED: '1'
+        run: python3 tools/prepare_android.py
+
+      - name: Build signed Play-candidate Android App Bundle
+        if: env.REACH_PLAY_CANDIDATE == '1'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
+          LEGAL_BASE_URL: ${{ secrets.LEGAL_BASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build appbundle --release \
+            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
+            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="SUPPORT_EMAIL=$SUPPORT_EMAIL" \
+            --dart-define="LEGAL_BASE_URL=$LEGAL_BASE_URL"
+          test -s build/app/outputs/bundle/release/app-release.aab
+          jarsigner -verify build/app/outputs/bundle/release/app-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.0.0-signed-Play-CANDIDATE.aab
+          sha256sum dist/Reach-v1.0.0-signed-Play-CANDIDATE.aab > dist/PLAY-AAB-SHA256.txt
+
+      - name: Upload signed Play candidate AAB
+        if: env.REACH_PLAY_CANDIDATE == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reach-v1.0.0-SIGNED-PLAY-CANDIDATE
+          path: |
+            dist/Reach-v1.0.0-signed-Play-CANDIDATE.aab
+            dist/PLAY-AAB-SHA256.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Securely discard Play signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f android/key.properties android/app/upload-key.jks
