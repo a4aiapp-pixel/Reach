@@ -48,7 +48,7 @@ class _ReachPeoplePageState extends State<ReachPeoplePage> {
   Future<void> request(Map<String,dynamic> person) async {
     final controller=TextEditingController();
     final message=await showDialog<String>(context:context,builder:(ctx)=>AlertDialog(
-      title:Text('Connect with \${person['display_name']}?'),
+      title:Text('Connect with ${person['display_name']}?'),
       content:Column(mainAxisSize:MainAxisSize.min,
         crossAxisAlignment:CrossAxisAlignment.start,children:[
         const Text('The other member must approve before you can send messages. '
@@ -75,14 +75,19 @@ class _ReachPeoplePageState extends State<ReachPeoplePage> {
   Future<void> report(Map<String,dynamic> person) async {
     final result=await showDialog<String>(context:context,builder:(ctx)=>SimpleDialog(
       title:const Text('Report member'),
-      children:const [
-        SimpleDialogOption(value:'spam',child:Text('Spam or unsolicited contact')),
-        SimpleDialogOption(value:'fraud',child:Text('Fraud or impersonation')),
-        SimpleDialogOption(value:'harassment',child:Text('Harassment')),
-        SimpleDialogOption(value:'adult_content',child:Text('Sexual content')),
-        SimpleDialogOption(value:'child_safety',child:Text('Child safety')),
-        SimpleDialogOption(value:'illegal_content',child:Text('Illegal activity')),
-        SimpleDialogOption(value:'unsafe',child:Text('Other unsafe behavior')),
+      children:[
+        for(final item in const <String,String>{
+          'spam':'Spam or unsolicited contact',
+          'fraud':'Fraud or impersonation',
+          'harassment':'Harassment',
+          'adult_content':'Sexual content',
+          'child_safety':'Child safety',
+          'illegal_content':'Illegal activity',
+          'unsafe':'Other unsafe behavior',
+        }.entries)
+          SimpleDialogOption(
+            onPressed:()=>Navigator.pop(ctx,item.key),
+            child:Text(item.value)),
       ]));
     if(result==null)return;
     try{
@@ -95,7 +100,7 @@ class _ReachPeoplePageState extends State<ReachPeoplePage> {
   Future<void> block(Map<String,dynamic> person) async {
     final ok=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
       title:const Text('Block member?'),
-      content:Text('Block \${person['display_name']}? They will no longer appear '
+      content:Text('Block ${person['display_name']}? They will no longer appear '
         'in your discovery results or be able to contact you.'),
       actions:[
         TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('Cancel')),
@@ -137,7 +142,7 @@ class _ReachPeoplePageState extends State<ReachPeoplePage> {
             ]),
         ]),
         const SizedBox(height:8),
-        Text('\${person['city']}, \${person['country']}',
+        Text('${person['city']}, ${person['country']}',
           style:Theme.of(context).textTheme.bodySmall),
         const SizedBox(height:5),
         Text('$privacy profile',style:Theme.of(context).textTheme.labelSmall),
