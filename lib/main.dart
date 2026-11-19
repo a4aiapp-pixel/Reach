@@ -21,6 +21,8 @@ import 'reach_legal_sheet.dart';
 import 'community_catalog.dart';
 import 'geo_places.dart';
 import 'reach_permission_intro.dart';
+import 'reach_people.dart';
+import 'reach_age_gate.dart';
 
 late final ReachRepository reach;
 // Categories and starter group templates are centralized in community_catalog.dart.
@@ -391,6 +393,7 @@ class _ReachHomeState extends State<ReachHome>{
     if(profile['terms_accepted_at']==null||str(profile['city']).trim().isEmpty||str(profile['country']).trim().isEmpty){
       return ProfileSetup(onComplete:(){load();});
     }
+    if(profile['adult_self_attested_at']==null)return ReachAdultGate(onComplete:load);
     if(showIntro)return ReachPermissionIntro(
       onEnableNearby:enableNearbyDuringIntro,
       onContinueWithout:finishPermissionIntro,
@@ -499,6 +502,10 @@ class _DiscoverPageState extends State<DiscoverPage>{
       crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text('Reach',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w900)),
         Text('Good things happen when we connect',style:Theme.of(context).textTheme.bodySmall)])),
+      IconButton(tooltip:'Find people',onPressed:()=>Navigator.push(context,
+          MaterialPageRoute(builder:(_)=>ReachPeoplePage(chatBuilder:(id,peer,name)=>
+            ChatPage(conversationId:id,peerId:peer,peerName:name,topic:'Direct connection')))),
+          icon:const Icon(Icons.people_alt_outlined)),
       IconButton(tooltip:'Reach Assist · free local tools',onPressed:()=>Navigator.push(context,
           MaterialPageRoute(builder:(_)=>const ReachAssistPage())),
           icon:const Icon(Icons.auto_awesome)),
@@ -640,6 +647,10 @@ Future<void> showReportDialog(BuildContext context,String type,String id) async 
         DropdownMenuItem(value:'unsafe',child:Text('Unsafe content')),
         DropdownMenuItem(value:'child_safety',child:Text('Child safety / exploitation')),
         DropdownMenuItem(value:'sexual_exploitation',child:Text('Sexual exploitation')),
+        DropdownMenuItem(value:'adult_content',child:Text('Pornography / sexual content')),
+        DropdownMenuItem(value:'illegal_content',child:Text('Illegal content or trade')),
+        DropdownMenuItem(value:'dangerous_activities',child:Text('Dangerous activities')),
+        DropdownMenuItem(value:'self_harm',child:Text('Self-harm promotion')),
         DropdownMenuItem(value:'fraud',child:Text('Fraud / impersonation')),
         DropdownMenuItem(value:'impersonation',child:Text('Impersonation')),
         DropdownMenuItem(value:'other',child:Text('Other'))],
@@ -743,14 +754,15 @@ class InboxPage extends StatefulWidget{const InboxPage({super.key});@override St
 class _InboxPageState extends State<InboxPage>{
  int tab=0;bool loading=true;
  List<ReachRequest> incoming=[],outgoing=[];
- List<Map<String,dynamic>> conversations=[],alerts=[];
+ List<Map<String,dynamic>> conversations=[],alerts=[],memberRequests=[];
  @override void initState(){super.initState();refresh();}
  Future<void> refresh()async{
   final values=await Future.wait<Object?>([
     busy(context,()=>reach.requests()),
     busy(context,()=>reach.requests(incoming:false)),
     busy(context,reach.conversations),
-    busy(context,reach.alerts)
+    busy(context,reach.alerts),
+    busy(context,reach.memberRequests)
   ]);
   if(mounted)setState((){
     final a=values[0] as List<ReachRequest>?;
@@ -758,7 +770,10 @@ class _InboxPageState extends State<InboxPage>{
     final c=values[2] as List<Map<String,dynamic>>?;
     final d=values[3] as List<Map<String,dynamic>>?;
     if(a!=null)incoming=a;if(b!=null)outgoing=b;
-    if(c!=null)conversations=c;if(d!=null)alerts=d;loading=false;
+    if(c!=null)conversations=c;if(d!=null)alerts=d;
+    final e=values[4] as List<Map<String,dynamic>>?;
+    if(e!=null)memberRequests=e;
+    loading=false;
   });
  }
  @override Widget build(BuildContext context)=>SafeArea(child:Column(children:[
@@ -789,9 +804,43 @@ class _InboxPageState extends State<InboxPage>{
    ))).toList();
  }
  List<Widget> _requestRows(){
-   if(incoming.isEmpty&&outgoing.isEmpty)return [gap(80),emptyState(context,Icons.handshake_outlined,
-     'No requests','Tap “View & connect” on an offer or request to introduce yourself.')];
-   return [if(incoming.isNotEmpty)...[Text('Received',style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),gap(8)],
+   if(incoming.isEmpty&&outgoing.isEmpty&&memberRequests.isEmpty)return [
+     gap(80),emptyState(context,Icons.handshake_outlined,'No requests',
+       'Find people or respond to an offer to start a private connection.')];
+   final receivedMembers=memberRequests.where((m)=>m['incoming']==true).toList();
+   final sentMembers=memberRequests.where((m)=>m['incoming']!=true).toList();
+   return [
+     if(receivedMembers.isNotEmpty)...[
+       Text('People who requested to connect',
+         style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),
+       gap(8),
+       ...receivedMembers.map((m)=>Card(child:Padding(padding:const EdgeInsets.all(14),
+         child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+           Text(str(m['peer_name']),style:const TextStyle(fontWeight:FontWeight.bold)),
+           if(str(m['peer_username']).isNotEmpty)Text('@${m['peer_username']}'),
+           gap(6),Text(str(m['message'])),gap(9),
+           if(m['status']=='pending')Wrap(spacing:8,children:[
+             FilledButton.tonal(onPressed:()=>busy(context,()async{
+               await reach.answerMember(str(m['id']),true);await refresh();
+             },success:'Connected. Find this member under Chats.'),
+               child:const Text('Accept')),
+             OutlinedButton(onPressed:()=>busy(context,()async{
+               await reach.answerMember(str(m['id']),false);await refresh();
+             },success:'Request declined'),child:const Text('Decline')),
+           ]) else Text(str(m['status']).toUpperCase()),
+         ])))),
+       gap(13),
+     ],
+     if(sentMembers.isNotEmpty)...[
+       Text('People you contacted',
+         style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),
+       gap(8),
+       ...sentMembers.map((m)=>Card(child:ListTile(
+         title:Text(str(m['peer_name'])),subtitle:Text(str(m['message'])),
+         trailing:Chip(label:Text(str(m['status'])))))),
+       gap(13),
+     ],
+     if(incoming.isNotEmpty)...[Text('Received',style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),gap(8)],
     ...incoming.map((r)=>Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(
      crossAxisAlignment:CrossAxisAlignment.start,children:[
        Text(r.senderName,style:const TextStyle(fontWeight:FontWeight.bold)),Text('About: ${r.postTitle}',
@@ -826,6 +875,8 @@ class ChatPage extends StatefulWidget {
 }
 class _ChatPageState extends State<ChatPage>{
  final text=TextEditingController();bool sending=false;
+ Future<bool>? canCall;
+ @override void initState(){super.initState();if(AppConfig.callingEnabled)canCall=reach.canCall(widget.peerId);}
  @override void dispose(){text.dispose();super.dispose();}
  Future<void> send()async{
   final message=text.text.trim();if(message.isEmpty||message.length>2000||sending)return;
@@ -866,9 +917,17 @@ class _ChatPageState extends State<ChatPage>{
           ]))));
        });
      })),
-    if(AppConfig.callingEnabled)ReachCallActions(
-      conversationId:widget.conversationId,peerId:widget.peerId,
-      peerName:widget.peerName),
+    if(AppConfig.callingEnabled)FutureBuilder<bool>(
+      future:canCall,builder:(context,snapshot){
+        if(snapshot.data==true)return ReachCallActions(
+          conversationId:widget.conversationId,peerId:widget.peerId,
+          peerName:widget.peerName);
+        return Padding(padding:const EdgeInsets.symmetric(vertical:8,horizontal:16),
+          child:Text(snapshot.hasError?'Call availability could not be verified.':
+            'Calling requires both members to opt in under Me → Privacy & calling.',
+            textAlign:TextAlign.center,
+            style:Theme.of(context).textTheme.bodySmall));
+      }),
     ChatAttachmentsPanel(conversationId:widget.conversationId),
     Container(padding:const EdgeInsets.fromLTRB(12,8,8,9),decoration:BoxDecoration(
       color:Theme.of(context).colorScheme.surface),
