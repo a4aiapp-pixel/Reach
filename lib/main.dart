@@ -12,6 +12,8 @@ import 'repository.dart';
 import 'push_service.dart';
 import 'reach_auth_providers.dart';
 import 'reach_themes.dart';
+import 'reach_navigation.dart';
+import 'reach_discover_design.dart';
 import 'chat_attachment_panel.dart';
 import 'business_studio.dart';
 import 'reach_calling.dart';
@@ -428,26 +430,28 @@ class _ReachHomeState extends State<ReachHome>{
        visitedPages.contains(4)?ProfilePage(profile:profile,onChanged:()=>unawaited(refreshProfileQuietly()),onTheme:widget.onTheme,
          themeMode:widget.themeMode,lookId:widget.lookId,onLook:widget.onLook):const SizedBox.shrink()
      ];
-     return Scaffold(body:IndexedStack(index:page,children:pages),
-       bottomNavigationBar:NavigationBar(selectedIndex:page,onDestinationSelected:(i){
-         setState((){page=i;visitedPages.add(i);});
-         if(i==2)WidgetsBinding.instance.addPostFrameCallback((_){
-           if(mounted&&inboxKey.currentState!=null)unawaited(inboxKey.currentState!.refresh());
-         });
-       },
-        labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,
-        destinations:[
-          NavigationDestination(icon:Icon(Icons.explore_outlined),selectedIcon:Icon(Icons.explore),label:'Discover'),
-          NavigationDestination(icon:Icon(Icons.bolt_outlined),selectedIcon:Icon(Icons.bolt),label:'My Reach'),
-          NavigationDestination(icon:Badge(isLabelVisible:unreadAlerts>0,
-              label:Text(unreadAlerts>49?'49+':'$unreadAlerts'),
-              child:const Icon(Icons.chat_bubble_outline)),
-            selectedIcon:Badge(isLabelVisible:unreadAlerts>0,
-              label:Text(unreadAlerts>49?'49+':'$unreadAlerts'),
-              child:const Icon(Icons.chat_bubble)),label:'Inbox'),
-          NavigationDestination(icon:Icon(Icons.groups_outlined),selectedIcon:Icon(Icons.groups),label:'Groups'),
-          NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Me'),
-        ]));
+     void selectPage(int i){
+        setState((){page=i;visitedPages.add(i);});
+        if(i==2)WidgetsBinding.instance.addPostFrameCallback((_){
+          if(mounted&&inboxKey.currentState!=null){
+            unawaited(inboxKey.currentState!.refresh());
+          }
+        });
+      }
+      final rail=ReachAdaptiveNavigation.shouldUseRail(context);
+      return Scaffold(
+        body:rail
+          ?Row(children:[
+              ReachAdaptiveRail(selectedIndex:page,onSelected:selectPage,
+                unreadCount:unreadAlerts),
+              const VerticalDivider(width:1,thickness:1),
+              Expanded(child:IndexedStack(index:page,children:pages)),
+            ])
+          :IndexedStack(index:page,children:pages),
+        bottomNavigationBar:rail?null:ReachAdaptiveNavigation(
+          selectedIndex:page,onSelected:selectPage,
+          unreadCount:unreadAlerts),
+      );
   }
 }
 
@@ -518,20 +522,58 @@ class _DiscoverPageState extends State<DiscoverPage>{
     setState((){if(result!=null)posts=result;loading=false;});
   }
  }
- @override Widget build(BuildContext context)=>SafeArea(child:Column(children:[
-  Padding(padding:const EdgeInsets.fromLTRB(18,15,18,0),child:Column(children:[
-    Row(children:[const ReachMark(size:42),const SizedBox(width:12),Expanded(child:Column(
-      crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text('Reach',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w900)),
-        Text('Good things happen when we connect',style:Theme.of(context).textTheme.bodySmall)])),
-      IconButton(tooltip:'Find people',onPressed:()=>Navigator.push(context,
-          MaterialPageRoute(builder:(_)=>ReachPeoplePage(chatBuilder:(id,peer,name)=>
-            ChatPage(conversationId:id,peerId:peer,peerName:name,topic:'Direct connection')))),
-          icon:const Icon(Icons.people_alt_outlined)),
-      IconButton(tooltip:'Reach Assist · free local tools',onPressed:()=>Navigator.push(context,
+ Future<void> chooseFilters()async{
+   String nextCategory=category,nextKind=kind;
+   final selected=await showModalBottomSheet<List<String>>(
+     context:context,isScrollControlled:true,
+     builder:(sheet)=>StatefulBuilder(builder:(sheet,repaint)=>SafeArea(
+       top:false,child:Padding(padding:EdgeInsets.fromLTRB(
+         20,8,20,MediaQuery.viewInsetsOf(sheet).bottom+22),
+         child:Column(mainAxisSize:MainAxisSize.min,
+           crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+           Text('Refine discovery',
+             style:Theme.of(sheet).textTheme.titleLarge),
+           const SizedBox(height:16),
+           DropdownButtonFormField<String>(
+             initialValue:nextCategory,isExpanded:true,
+             decoration:const InputDecoration(labelText:'Category'),
+             items:categories.map((item)=>DropdownMenuItem(
+               value:item,child:Text(item,overflow:TextOverflow.ellipsis))).toList(),
+             onChanged:(v)=>repaint(()=>nextCategory=v??'All')),
+           const SizedBox(height:12),
+           DropdownButtonFormField<String>(
+             initialValue:nextKind,isExpanded:true,
+             decoration:const InputDecoration(labelText:'Type'),
+             items:const [
+               DropdownMenuItem(value:'All',child:Text('Everything')),
+               DropdownMenuItem(value:'offer',child:Text('Offers')),
+               DropdownMenuItem(value:'request',child:Text('Requests'))],
+             onChanged:(v)=>repaint(()=>nextKind=v??'All')),
+           const SizedBox(height:18),
+           FilledButton.icon(
+             onPressed:()=>Navigator.pop(sheet,[nextCategory,nextKind]),
+             icon:const Icon(Icons.check),label:const Text('Apply filters')),
+         ])))));
+   if(selected!=null && selected.length==2 && mounted){
+     setState((){category=selected[0];kind=selected[1];});
+     await refresh();
+   }
+ }
+ @override Widget build(BuildContext context){
+  final look=ReachDesign.of(context);
+  final shortScreen=MediaQuery.sizeOf(context).height<740;
+  return SafeArea(child:Column(children:[
+  Padding(padding:EdgeInsets.fromLTRB(look.gutter,look.compact?8:12,look.gutter,0),
+    child:Column(children:[
+      ReachDiscoverHero(
+        onPeople:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>
+          ReachPeoplePage(chatBuilder:(id,peer,name)=>
+            ChatPage(conversationId:id,peerId:peer,peerName:name,
+              topic:'Direct connection')))),
+        onAssist:()=>Navigator.push(context,
           MaterialPageRoute(builder:(_)=>const ReachAssistPage())),
-          icon:const Icon(Icons.auto_awesome)),
-      IconButton(tooltip:'Refresh',onPressed:refresh,icon:const Icon(Icons.refresh_rounded))]),gap(20),
+        onRefresh:refresh),
+      gap(look.compact?9:15),
     TextField(controller:search,onChanged:(_){debounce?.cancel();debounce=Timer(const Duration(milliseconds:400),refresh);},
       decoration:const InputDecoration(hintText:'Search help, skills or opportunities',prefixIcon:Icon(Icons.search_rounded))),gap(13),
     SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
@@ -539,19 +581,30 @@ class _DiscoverPageState extends State<DiscoverPage>{
         Padding(padding:const EdgeInsets.only(right:8),child:ChoiceChip(label:Text(a.value),selected:area==a.key,
           onSelected:(_){setState(()=>area=a.key);refresh();})),
     ])),gap(6),
-    Row(children:[
-      Expanded(child:DropdownButtonFormField<String>(initialValue:category,isExpanded:true,
-        decoration:const InputDecoration(labelText:'Category',isDense:true),
-        items:categories.map((e)=>DropdownMenuItem(value:e,child:Text(e,overflow:TextOverflow.ellipsis))).toList(),
-        onChanged:(v){setState(()=>category=v??'All');refresh();})),
-      const SizedBox(width:8),
-      Expanded(child:DropdownButtonFormField<String>(initialValue:kind,
-        decoration:const InputDecoration(labelText:'Type',isDense:true),
-        items:const [DropdownMenuItem(value:'All',child:Text('Everything')),
-          DropdownMenuItem(value:'offer',child:Text('Offers')),
-          DropdownMenuItem(value:'request',child:Text('Requests'))],
-        onChanged:(v){setState(()=>kind=v??'All');refresh();})),
-    ]),
+    if(look.filters==ReachFilterLayout.sheet || shortScreen)
+      SizedBox(width:double.infinity,
+        child:OutlinedButton.icon(onPressed:chooseFilters,
+          icon:const Icon(Icons.tune_rounded,size:19),
+          label:Text('Filters · ${category=='All'?'All topics':category} · ${kind=='All'?'All':kind}',
+            maxLines:1,overflow:TextOverflow.ellipsis))),
+    if(look.filters==ReachFilterLayout.inline && !shortScreen)
+      Row(children:[
+        Expanded(child:DropdownButtonFormField<String>(
+          initialValue:category,isExpanded:true,
+          decoration:const InputDecoration(labelText:'Category',isDense:true),
+          items:categories.map((e)=>DropdownMenuItem(value:e,
+            child:Text(e,overflow:TextOverflow.ellipsis))).toList(),
+          onChanged:(v){setState(()=>category=v??'All');refresh();})),
+        const SizedBox(width:8),
+        Expanded(child:DropdownButtonFormField<String>(
+          initialValue:kind,isExpanded:true,
+          decoration:const InputDecoration(labelText:'Type',isDense:true),
+          items:const [
+            DropdownMenuItem(value:'All',child:Text('Everything')),
+            DropdownMenuItem(value:'offer',child:Text('Offers')),
+            DropdownMenuItem(value:'request',child:Text('Requests'))],
+          onChanged:(v){setState(()=>kind=v??'All');refresh();})),
+      ]),
     if(area=='nearby')Row(children:[
       Expanded(child:Text('Within $radius km · approximate area',style:Theme.of(context).textTheme.bodySmall)),
       PopupMenuButton<int>(tooltip:'Nearby radius',onSelected:(v){setState(()=>radius=v);refresh();},
@@ -568,44 +621,221 @@ class _DiscoverPageState extends State<DiscoverPage>{
     child:posts.isEmpty?ListView(children:[SizedBox(height:MediaQuery.sizeOf(context).height*.17),
       emptyState(context,Icons.travel_explore_rounded,'Nothing matching yet',
       'Try another location or category. Your community grows with every new reach.')]):
-      ListView.builder(padding:const EdgeInsets.fromLTRB(18,0,18,90),itemCount:posts.length,
-       itemBuilder:(c,i)=>ReachCard(post:posts[i],onTap:()=>showReachDetail(context,posts[i],onChanged:refresh)) ))),
+      LayoutBuilder(builder:(context,constraints){
+        final columns=look.feed==ReachFeedLayout.bento && constraints.maxWidth>=610;
+        if(columns){
+          return GridView.builder(
+            padding:EdgeInsets.fromLTRB(look.gutter,0,look.gutter,90),
+            gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount:2,childAspectRatio:1.14,
+              crossAxisSpacing:14,mainAxisSpacing:12),
+            itemCount:posts.length,
+            itemBuilder:(c,i)=>ReachCard(post:posts[i],
+              onTap:()=>showReachDetail(context,posts[i],onChanged:refresh)),
+          );
+        }
+        return ListView.builder(
+          padding:EdgeInsets.fromLTRB(look.gutter,0,look.gutter,90),
+          itemCount:posts.length,
+          itemBuilder:(c,i)=>ReachCard(post:posts[i],
+            onTap:()=>showReachDetail(context,posts[i],onChanged:refresh)),
+        );
+      }))),
  ]));
 }
 
 class ReachCard extends StatelessWidget {
- const ReachCard({super.key,required this.post,required this.onTap,this.owner=false});
- final ReachPost post;final VoidCallback onTap;final bool owner;
- @override Widget build(BuildContext context){
-  final offering=post.kind=='offer';
-  final scheme=Theme.of(context).colorScheme;
-  final foreground=offering?scheme.onSecondaryContainer:scheme.onTertiaryContainer;
-  final stateColor=offering?scheme.secondaryContainer:scheme.tertiaryContainer;
-  return Card(margin:const EdgeInsets.only(bottom:12),child:InkWell(
-    customBorder:Theme.of(context).cardTheme.shape,onTap:onTap,
-   child:Padding(padding:const EdgeInsets.all(17),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Row(children:[Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),
-        decoration:BoxDecoration(color:stateColor,borderRadius:BorderRadius.circular(20)),
-        child:Row(mainAxisSize:MainAxisSize.min,children:[Icon(offering?Icons.volunteer_activism:Icons.pan_tool_alt_outlined,color:foreground,size:15),
-         const SizedBox(width:5),Text(offering?'OFFERING HELP':'NEEDS HELP',style:TextStyle(color:foreground,fontWeight:FontWeight.bold,fontSize:11))])),
-        const Spacer(),Text(timeago.format(post.createdAt),style:Theme.of(context).textTheme.bodySmall)]),gap(12),
-      Text(post.title,style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.w800)),
-      if(post.detail.isNotEmpty)...[gap(4),Text(post.detail,maxLines:2,overflow:TextOverflow.ellipsis,
-        style:Theme.of(context).textTheme.bodyMedium)],gap(12),
-      Wrap(spacing:8,runSpacing:8,children:[
-        miniTag(Icons.category_outlined,post.category),
-        miniTag(Icons.location_city_outlined,'${post.city}, ${post.country}'),
-        miniTag(Icons.schedule_rounded,post.expired?'Expired':'Until ${formatTime.format(post.expiresAt)}'),
-        if(post.scope=='circle')miniTag(Icons.lock_outline,post.circleName),
-      ]),gap(13),const Divider(height:1),gap(10),
-      Row(children:[CircleAvatar(radius:14,child:Text(post.ownerName.isEmpty?'?':post.ownerName.characters.first.toUpperCase(),style:const TextStyle(fontSize:12))),
-        const SizedBox(width:9),Expanded(child:Text(owner?'Your reach':post.ownerName,
-          overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.w600))),
-        Text(owner?'Manage':'View & connect',style:TextStyle(color:Theme.of(context).colorScheme.primary,fontWeight:FontWeight.bold,fontSize:12)),
-        Icon(Icons.chevron_right,color:Theme.of(context).colorScheme.primary),
-      ])
-    ]))));
- }
+  const ReachCard({super.key,required this.post,required this.onTap,this.owner=false});
+  final ReachPost post;
+  final VoidCallback onTap;
+  final bool owner;
+
+  @override Widget build(BuildContext context){
+    final look=ReachDesign.of(context);
+    final scheme=Theme.of(context).colorScheme;
+    final text=Theme.of(context).textTheme;
+    final offer=post.kind=='offer';
+    final accent=offer?scheme.primary:scheme.tertiary;
+    final status=offer?'OFFERING HELP':'NEEDS HELP';
+    final categoryLocation='${post.category} · ${post.city}';
+    final action=owner?'Manage':'Connect';
+
+    if(look.feed==ReachFeedLayout.compact){
+      return Card(margin:const EdgeInsets.only(bottom:8),child:InkWell(
+        onTap:onTap,customBorder:Theme.of(context).cardTheme.shape,
+        child:Padding(padding:EdgeInsets.all(look.compact?9:12),
+          child:Row(children:[
+            Container(width:43,height:48,alignment:Alignment.center,
+              decoration:BoxDecoration(color:accent.withValues(alpha:.13),
+                borderRadius:BorderRadius.circular(look.radius.clamp(5.0,14.0).toDouble())),
+              child:Icon(offer?Icons.volunteer_activism_outlined:
+                Icons.pan_tool_alt_outlined,color:accent,size:23)),
+            const SizedBox(width:12),
+            Expanded(child:Column(
+              crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(post.title,maxLines:2,overflow:TextOverflow.ellipsis,
+                style:text.titleMedium?.copyWith(fontWeight:FontWeight.w800)),
+              const SizedBox(height:4),
+              Text(categoryLocation,maxLines:1,overflow:TextOverflow.ellipsis,
+                style:text.bodySmall),
+              const SizedBox(height:3),
+              Text('${post.ownerName} · ${timeago.format(post.createdAt)}',
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:text.labelSmall),
+            ])),
+            Icon(Icons.chevron_right_rounded,size:22,color:accent),
+          ]))));
+    }
+
+    if(look.feed==ReachFeedLayout.editorial){
+      return Card(margin:const EdgeInsets.only(bottom:12),child:InkWell(
+        onTap:onTap,customBorder:Theme.of(context).cardTheme.shape,
+        child:Padding(padding:EdgeInsets.all(look.compact?13:19),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Row(children:[
+              Icon(offer?Icons.favorite_border:Icons.pan_tool_alt_outlined,
+                size:17,color:accent),
+              const SizedBox(width:7),
+              Expanded(child:Text(status,
+                style:text.labelSmall?.copyWith(
+                  color:accent,fontWeight:FontWeight.w900,letterSpacing:1.2))),
+              Text(timeago.format(post.createdAt),style:text.labelSmall),
+            ]),
+            const SizedBox(height:10),
+            Text(post.title,maxLines:3,overflow:TextOverflow.ellipsis,
+              style:text.titleLarge?.copyWith(
+                fontFamily:look.font,fontWeight:FontWeight.w800)),
+            if(post.detail.isNotEmpty)...[
+              const SizedBox(height:7),
+              Text(post.detail,maxLines:2,overflow:TextOverflow.ellipsis,
+                style:text.bodyMedium),
+            ],
+            const SizedBox(height:12),
+            Divider(color:scheme.outlineVariant),
+            const SizedBox(height:6),
+            Row(children:[
+              Expanded(child:Text('${post.city} · ${post.category}',
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:text.labelSmall)),
+              Text(action.toUpperCase(),style:text.labelSmall?.copyWith(
+                color:accent,fontWeight:FontWeight.w900)),
+              Icon(Icons.arrow_outward,size:17,color:accent),
+            ]),
+          ]))));
+    }
+
+    if(look.feed==ReachFeedLayout.bento){
+      return Card(margin:const EdgeInsets.only(bottom:12),clipBehavior:Clip.antiAlias,
+        child:InkWell(onTap:onTap,child:Column(
+          crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Container(
+            height:57,width:double.infinity,
+            padding:const EdgeInsets.symmetric(horizontal:15),
+            decoration:BoxDecoration(
+              gradient:LinearGradient(colors:[
+                accent.withValues(alpha:.95),look.accent.withValues(alpha:.8)])),
+            child:Row(children:[
+              Icon(offer?Icons.volunteer_activism_outlined:
+                Icons.pan_tool_alt_outlined,color:Colors.white,size:23),
+              const SizedBox(width:9),
+              Expanded(child:Text(status,style:const TextStyle(
+                color:Colors.white,fontSize:11,fontWeight:FontWeight.w900,
+                letterSpacing:1.1))),
+              const Icon(Icons.arrow_outward,color:Colors.white,size:19),
+            ]),
+          ),
+          Padding(padding:EdgeInsets.all(look.compact?12:16),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(post.title,maxLines:2,overflow:TextOverflow.ellipsis,
+                style:text.titleLarge?.copyWith(fontWeight:FontWeight.w900)),
+              if(post.detail.isNotEmpty)...[
+                const SizedBox(height:6),
+                Text(post.detail,maxLines:2,overflow:TextOverflow.ellipsis,
+                  style:text.bodyMedium),
+              ],
+              const SizedBox(height:13),
+              Wrap(spacing:8,runSpacing:7,children:[
+                miniTag(Icons.location_on_outlined,post.city),
+                miniTag(Icons.category_outlined,post.category),
+              ]),
+              const SizedBox(height:10),
+              Text('${post.ownerName} · ${timeago.format(post.createdAt)}',
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:text.labelSmall),
+            ])),
+        ])));
+    }
+
+    // Floating and accent-rail cards retain all metadata in a softer layout.
+    final fg=offer?scheme.onSecondaryContainer:scheme.onTertiaryContainer;
+    final background=offer?scheme.secondaryContainer:scheme.tertiaryContainer;
+    final accentRail=look.feed==ReachFeedLayout.accent;
+    return Card(margin:const EdgeInsets.only(bottom:12),
+      child:InkWell(
+        onTap:onTap,customBorder:Theme.of(context).cardTheme.shape,
+        child:Container(
+          decoration:accentRail?BoxDecoration(
+            border:Border(left:BorderSide(color:accent,width:5))):null,
+          child:Padding(padding:EdgeInsets.all(look.compact?12:17),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Row(children:[
+                Container(padding:const EdgeInsets.symmetric(
+                  horizontal:10,vertical:6),
+                  decoration:BoxDecoration(
+                    color:background,borderRadius:BorderRadius.circular(
+                      accentRail?6:20)),
+                  child:Row(mainAxisSize:MainAxisSize.min,children:[
+                    Icon(offer?Icons.volunteer_activism:
+                      Icons.pan_tool_alt_outlined,color:fg,size:15),
+                    const SizedBox(width:5),
+                    Text(status,style:TextStyle(
+                      color:fg,fontWeight:FontWeight.bold,fontSize:11)),
+                  ])),
+                const Spacer(),
+                Text(timeago.format(post.createdAt),
+                  style:text.bodySmall),
+              ]),
+              const SizedBox(height:11),
+              Text(post.title,style:text.titleMedium?.copyWith(
+                fontWeight:FontWeight.w900)),
+              if(post.detail.isNotEmpty)...[
+                const SizedBox(height:5),
+                Text(post.detail,maxLines:2,overflow:TextOverflow.ellipsis,
+                  style:text.bodyMedium),
+              ],
+              const SizedBox(height:12),
+              Wrap(spacing:8,runSpacing:8,children:[
+                miniTag(Icons.category_outlined,post.category),
+                miniTag(Icons.location_city_outlined,
+                  '${post.city}, ${post.country}'),
+                miniTag(Icons.schedule_rounded,
+                  post.expired?'Expired':
+                    'Until ${formatTime.format(post.expiresAt)}'),
+                if(post.scope=='circle')
+                  miniTag(Icons.lock_outline,post.circleName),
+              ]),
+              const SizedBox(height:12),
+              Divider(height:1,color:scheme.outlineVariant),
+              const SizedBox(height:10),
+              Row(children:[
+                CircleAvatar(radius:14,
+                  child:Text(post.ownerName.isEmpty?'?':
+                    post.ownerName.characters.first.toUpperCase(),
+                    style:const TextStyle(fontSize:12))),
+                const SizedBox(width:9),
+                Expanded(child:Text(owner?'Your reach':post.ownerName,
+                  maxLines:1,overflow:TextOverflow.ellipsis,
+                  style:const TextStyle(fontWeight:FontWeight.w600))),
+                Text(owner?'Manage':'View & connect',
+                  style:TextStyle(color:scheme.primary,
+                    fontWeight:FontWeight.w800,fontSize:12)),
+                Icon(Icons.chevron_right,color:scheme.primary),
+              ]),
+            ])),
+        ),
+      ),
+    );
+  }
 }
 Widget miniTag(IconData i,String s)=>Builder(builder:(context)=>Row(mainAxisSize:MainAxisSize.min,children:[
   Icon(i,size:14,color:Theme.of(context).colorScheme.onSurfaceVariant),const SizedBox(width:4),
@@ -1366,8 +1596,8 @@ class ProfilePage extends StatelessWidget {
          MaterialPageRoute(builder:(_)=>const ReachBusinessStudio()))),
      const Divider(height:1),
      ListTile(leading:const Icon(Icons.auto_awesome_outlined),
-       title:const Text('Design studio · 10 full-app themes'),
-       subtitle:Text('Current: ${reachLookById(lookId).name} · colors, cards, buttons and navigation'),
+       title:const Text('Design studio · 10 distinct layouts'),
+       subtitle:Text('Current: ${reachLookById(lookId).name} · navigation, feed, headers and typography'),
        trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.push(context,
          MaterialPageRoute(builder:(_)=>ReachThemeGallery(selected:lookId,onSelected:onLook)))),
      const Divider(height:1),
@@ -1399,7 +1629,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.0.8 · Reliable privacy and consent',
+   ])),gap(18),Center(child:Text('Reach 1.1.0 · Expressive design systems',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }
