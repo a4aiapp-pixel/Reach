@@ -55,7 +55,7 @@ class ReachLook {
         headlineSmall:TextStyle(fontFamily:font,fontSize:compact?21:26,
           fontWeight:serif?FontWeight.w600:FontWeight.w800,letterSpacing:-.6),
         titleLarge:TextStyle(fontFamily:font,fontSize:compact?19:23,
-          fontWeight:FontWeight.w800,letterSpacing:condensed?.25:-.35),
+          fontWeight:FontWeight.w800,letterSpacing:condensed ? .25 : -.35),
         titleMedium:TextStyle(fontFamily:font,fontSize:compact?15:17,
           fontWeight:FontWeight.w700),
       );

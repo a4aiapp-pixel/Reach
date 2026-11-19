@@ -642,6 +642,7 @@ class _DiscoverPageState extends State<DiscoverPage>{
         );
       }))),
  ]));
+ }
 }
 
 class ReachCard extends StatelessWidget {
