@@ -1270,6 +1270,53 @@ class ProfilePage extends StatelessWidget {
        onTap:()async {await Navigator.push(context,MaterialPageRoute(
          builder:(_)=>EditProfilePage(initial:profile)));onChanged();}),
      const Divider(height:1),
+     SwitchListTile(
+       secondary:const Icon(Icons.person_search_outlined),
+       title:const Text('Appear in people search'),
+       subtitle:const Text('Off by default. Other members can find your '
+         'name, username, city and country if you choose to appear.'),
+       value:profile['people_discoverable']==true,
+       onChanged:(v)async{
+         await busy(context,()=>reach.updateProfile({'people_discoverable':v}),
+           success:v?'People discovery enabled':'Hidden from people search');
+         onChanged();
+       }),
+     const Divider(height:1),
+     ListTile(
+       leading:const Icon(Icons.manage_accounts_outlined),
+       title:const Text('Profile visibility'),
+       subtitle:const Text('Private: details visible to accepted connections only. '
+         'Public: your bio and skills are shown when discoverable.'),
+       trailing:DropdownButton<String>(
+         underline:const SizedBox.shrink(),
+         value:profile['profile_visibility']=='public'?'public':'private',
+         items:const [
+           DropdownMenuItem(value:'private',child:Text('Private')),
+           DropdownMenuItem(value:'public',child:Text('Public')),
+         ],
+         onChanged:(v)async{
+           if(v!=null){
+             await busy(context,()=>reach.updateProfile({'profile_visibility':v}));
+             onChanged();
+           }
+         }),
+     ),
+     const Divider(height:1),
+     SwitchListTile(
+       secondary:const Icon(Icons.call_outlined),
+       title:const Text('Allow voice and video calls'),
+       subtitle:Text(AppConfig.callingEnabled
+         ?'Off by default. Both people must opt in and accept a connection. '
+          'Foreground calling may fail on some mobile networks.'
+         :'Save your consent preference. Calls require a calling-enabled build '
+          'and accepted connection on both devices.'),
+       value:profile['allow_calls']==true,
+       onChanged:(v)async{
+         await busy(context,()=>reach.updateProfile({'allow_calls':v}),
+           success:v?'Calling consent enabled':'Calling disabled');
+         onChanged();
+       }),
+     const Divider(height:1),
      SwitchListTile(secondary:const Icon(Icons.location_on_outlined),
        title:const Text('Nearby discovery'),subtitle:const Text('Opt-in: only a rounded location grid is stored.'),
        value:profile['location_opt_in']==true,onChanged:(v)async{
