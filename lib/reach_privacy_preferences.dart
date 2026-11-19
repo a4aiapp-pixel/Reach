@@ -11,10 +11,14 @@ class ReachPrivacyPreferences extends StatefulWidget {
   const ReachPrivacyPreferences({
     super.key,required this.profile,required this.onChanged,
     required this.callingEnabled,required this.pushEnabled,
+    this.persistForTest,this.persistNearbyForTest,
   });
   final Map<String,dynamic> profile;
   final VoidCallback onChanged;
   final bool callingEnabled,pushEnabled;
+  /// Injected persistence paths allow deterministic offline/error regression tests.
+  final Future<void> Function(String key,dynamic value)? persistForTest;
+  final Future<void> Function(bool enabled)? persistNearbyForTest;
 
   @override State<ReachPrivacyPreferences> createState()=>_ReachPrivacyPreferencesState();
 }
@@ -85,9 +89,15 @@ class _ReachPrivacyPreferencesState extends State<ReachPrivacyPreferences> {
   }
 
   Future<void> _update(String key,dynamic value) =>
-    _save(key,value,()=>repository.updateProfile({key:value}));
+    _save(key,value,()=>widget.persistForTest!=null
+      ?widget.persistForTest!(key,value)
+      :repository.updateProfile({key:value}));
 
   Future<void> _nearby(bool enabled)=>_save('location_opt_in',enabled,()async{
+    if(widget.persistNearbyForTest!=null){
+      await widget.persistNearbyForTest!(enabled);
+      return;
+    }
     if(enabled){
       await repository.setApproxLocation();
       try{
