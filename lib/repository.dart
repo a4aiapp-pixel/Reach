@@ -63,6 +63,42 @@ class ReachRepository {
   Future<void> updateProfile(Map<String, dynamic> values) async =>
       client.from('profiles').update(values).eq('id', uid).then((_) {});
 
+  Future<void> confirmAdult(DateTime birthday) async {
+    final date='${birthday.year.toString().padLeft(4,'0')}-'
+      '${birthday.month.toString().padLeft(2,'0')}-'
+      '${birthday.day.toString().padLeft(2,'0')}';
+    await client.rpc('reach_confirm_adult',params:{'p_birth_date':date});
+  }
+
+  Future<List<Map<String,dynamic>>> discoverPeople({
+      String area='city',String query=''}) async {
+    final result=await client.rpc('reach_discover_people',
+      params:{'p_area':area,'p_query':query.trim()});
+    return (result as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> requestMember(String recipient,String message) async {
+    await client.rpc('reach_request_member',params:{
+      'p_recipient':recipient,'p_message':message.trim(),
+    });
+  }
+
+  Future<void> answerMember(String requestId,bool accept) async {
+    await client.rpc('reach_answer_member',params:{
+      'p_request':requestId,'p_accept':accept,
+    });
+  }
+
+  Future<List<Map<String,dynamic>>> memberRequests() async {
+    final result=await client.rpc('reach_member_requests');
+    return (result as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
+  }
+
+  Future<bool> canCall(String peerId) async {
+    final value=await client.rpc('reach_can_call',params:{'p_peer':peerId});
+    return value==true;
+  }
+
   Future<void> setApproxLocation() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw StateError('Device location is turned off. Enable it in Settings.');
