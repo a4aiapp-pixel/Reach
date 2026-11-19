@@ -411,7 +411,7 @@ class _ReachHomeState extends State<ReachHome>{
          });
        },
         labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,
-        destinations:const [
+        destinations:[
           NavigationDestination(icon:Icon(Icons.explore_outlined),selectedIcon:Icon(Icons.explore),label:'Discover'),
           NavigationDestination(icon:Icon(Icons.bolt_outlined),selectedIcon:Icon(Icons.bolt),label:'My Reach'),
           NavigationDestination(icon:Badge(isLabelVisible:unreadAlerts>0,
