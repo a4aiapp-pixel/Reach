@@ -8,7 +8,7 @@ class ReachDiscoverHero extends StatelessWidget {
     required this.onPeople,required this.onAssist,required this.onRefresh});
   final VoidCallback onPeople,onAssist,onRefresh;
 
-  Widget _mark(double size,{Color? color}){
+  Widget _mark(double size){
     return ClipRRect(
       borderRadius:BorderRadius.circular(size*.24),
       child:Image.asset('assets/branding/reach_selected_icon.webp',
