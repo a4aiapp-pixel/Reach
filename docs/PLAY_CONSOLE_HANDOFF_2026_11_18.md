@@ -6,7 +6,7 @@
 
 - Display name: **Reach**
 - Package/applicationId expected from Flutter generator: `app.reachnetwork.reach_network` (verify from the generated signed AAB/Play Console).
-- Launch version: `1.0.7` / versionCode `8`; later updates MUST increment versionCode and reuse the persistent upload key.
+- Launch version: `1.0.7` / versionCode `9`; later updates MUST increment versionCode and reuse the persistent upload key.
 - Android target: API 36 (Android 16).
 - Category: Social (community help); 18+ self-declared eligibility, not dating or matchmaking.
 - Primary language: English. In-app English/Urdu phrases are limited prewritten utilities, not full translation.
@@ -70,20 +70,20 @@ For download use the individual artifacts shown in the latest successful workflo
 
 **Not yet done**: Google Play registration/submission, signed-AAB Play validation, contact identity, real device QA, confirmation of Auth URL settings and ongoing human moderation. Signed compilation is not Play approval.
 
-**Approved Play icon:** The three connected-person figures in a location pin supported by a hand. Download its versioned 512×512 PNG from the corresponding successful GitHub Actions v1.0.7 branding artifact. App name remains **Reach**.
+**Approved Play icon:** The three connected-person figures in a location pin supported by a hand. Download its versioned 512×512 PNG from the corresponding successful GitHub Actions v1.0.8 branding artifact. App name remains **Reach**.
 
-## Compiled-permission evidence (v1.0.7)
+## Compiled-permission evidence (v1.0.8)
 The signed AAB now has an automated audit of the ACTUAL base Android manifest. Enabled by default: internet, network status as required by SDKs, and **optional foreground coarse location** for approximate discovery. This internal QA build must reject dormant background notifications, precise location and broad-storage permissions; microphone and camera permissions are intentionally present for opt-in foreground voice/video calls. Public release requires two-device acceptance and truthful Play data-safety declarations. Review `PLAY-PERMISSION-AUDIT.json` attached to the new signed AAB artifact before upload. A permission audit is not a substitute for live-device behavior checks.
 
 **Current Play artwork:** official three-person pin icon from Reach v1.0.4 branding and separate 1024×500 feature graphic prepared for the launch pack. Genuine in-app screenshots remain outstanding until physical Android testing.
 
-**v1.0.7 release note:** Profile and setup country/city fields now suggest from locally bundled GeoNames directory. No search text or GPS coordinates are sent to a location autocomplete API. After profile setup, first-use optional approximate location consent is offered; decline does not block Reach. Storage/file selection remains through Android picker; background push remains off, while camera and microphone are used only after a foreground call is accepted. Attribution: `docs/GEO_DATA_ATTRIBUTION.md`.
+**v1.0.8 release note:** Profile and setup country/city fields now suggest from locally bundled GeoNames directory. No search text or GPS coordinates are sent to a location autocomplete API. After profile setup, first-use optional approximate location consent is offered; decline does not block Reach. Storage/file selection remains through Android picker; background push remains off, while camera and microphone are used only after a foreground call is accepted. Attribution: `docs/GEO_DATA_ATTRIBUTION.md`.
 
-## v1.0.7 feature gates (19 November 2026)
+## v1.0.8 feature gates (19 November 2026)
 
 - Live Supabase: opt-in people search, own-only raw profiles RLS, direct accepted-member chats, age self-attestation (DOB not retained), mutual calling consent and server-enforced text safety controls.
 - Privacy defaults: people discovery OFF, profile PRIVATE, calling OFF. All account holders must explicitly enable people discovery to appear in another user's search, and both accounts must allow calls after accepting a connection.
 - Automated safety: blocks targeted high-confidence sexual/exploitation solicitation, illicit trade, dangerous how-to and OTP theft patterns; permits addiction recovery, safety and educational discussion; not universal or infallible. Human moderation is mandatory.
 - No server-side visual moderation provider currently installed: new image, audio and video chat attachments are restricted. Documents may still contain unsafe material and require a report and review path. No live cam broadcast feature is provided.
 - GitHub Actions internal QA APK/AAB builds with ENABLE_REACH_CALLS=true and REACH_ENABLE_CALLS=1 request foreground camera/microphone permission. Actual two-device audio/video acceptance and Play Data Safety must be completed before public listing claims.
-- New AAB uses versionCode 8 and v1.0.7. Do not upload an outdated v1.0.6 bundle or assume the previous Play data-safety questionnaire applies to the upgraded binary.
+- New AAB uses versionCode 9 and v1.0.8. Do not upload an outdated v1.0.6 bundle or assume the previous Play data-safety questionnaire applies to the upgraded binary.

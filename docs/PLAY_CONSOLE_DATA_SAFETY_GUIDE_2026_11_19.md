@@ -1,4 +1,4 @@
-# Reach v1.0.7 — Play Console Data safety and App content worksheet
+# Reach v1.0.8 — Play Console Data safety and App content worksheet
 
 **Prepared:** 19 November 2026. **Status:** draft grounded in current code and database; NOT submitted to Google Play. Final declarations must be checked against the exact signed AAB and real user journeys. Do not claim to be approved by Google or to have passed third-party audits.
 
@@ -18,7 +18,7 @@
 | Personal info — email address | Supabase Auth registration, login, account recovery | Required to operate an account |
 | Personal info — name / user IDs | Username, display name, account ID | Username/display name collected during signup |
 | Personal info — other information | Profile bio, city, country, skills, chosen interests and profile visibility preferences | People-search enrollment is OFF by default; accepted contacts may see private profile details |
-| Approximate location | Optional Android location consent, rounded coordinates (0.1°) for nearby discovery | **v1.0.7 only declares coarse foreground location**; verify live behavior before final declaration |
+| Approximate location | Optional Android location consent, rounded coordinates (0.1°) for nearby discovery | **v1.0.8 only declares coarse foreground location**; verify live behavior before final declaration |
 | Messages | Invitation requests and accepted private conversations/messages | Sent only when used; not end-to-end encrypted; direct member requests require approval |
 | Photos / videos / audio | Historic chat attachments may exist; new media uploads are blocked until dependable safety screening | Camera/mic requested only for accepted, foreground voice/video calls in QA build; do not claim content scanning |
 | Files and documents | User-selected documents in private, accepted chats | 6 MiB per file; may contain embedded unsafe media; not comprehensively scanned |
@@ -51,7 +51,7 @@
 - Target audience: 18+ is stated by app policies. Verify signup age declaration and real Google Play audience settings.
 - User-generated content: reports/blocks are implemented, but a **human operator and operational response process** are required. App is not a substitute for emergency reporting.
 - Child safety: must identify the real responsible contact, publish standards and comply with legal reporting and moderation obligations.
-- Device permissions: inspect the signed `PLAY-PERMISSION-AUDIT.json` from v1.0.7; **no precise location, background notification or broad storage permission should appear; CAMERA and RECORD_AUDIO are expected for the opt-in calling QA variant**. APK/device-side confirmation is still required.
+- Device permissions: inspect the signed `PLAY-PERMISSION-AUDIT.json` from v1.0.8; **no precise location, background notification or broad storage permission should appear; CAMERA and RECORD_AUDIO are expected for the opt-in calling QA variant**. APK/device-side confirmation is still required.
 
 ## Unresolved gates
 

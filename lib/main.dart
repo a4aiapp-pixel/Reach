@@ -1399,7 +1399,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.0.7 · Consent, safety and discovery',
+   ])),gap(18),Center(child:Text('Reach 1.0.8 · Reliable privacy and consent',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }
