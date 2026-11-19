@@ -118,10 +118,19 @@ Future<T?> busy<T>(BuildContext context,Future<T> Function() work,{String? succe
   }return null;}
 }
 String humanError(Object e){
-  if(e is AuthException) return e.message;
-  if(e is PostgrestException) return e.message;
-  return e.toString().replaceFirst('Exception: ','').replaceFirst('Bad state: ','');
+  if(e is AuthException)return e.message;
+  if(e is PostgrestException)return e.message;
+  if(e is TimeoutException)return 'Reach could not contact its server. Check Wi-Fi or mobile data and retry.';
+  final raw=e.toString();
+  final lower=raw.toLowerCase();
+  if(lower.contains('socketexception')||lower.contains('clientexception')||
+      lower.contains('connection timed out')||lower.contains('failed host lookup')||
+      lower.contains('network is unreachable')||lower.contains('handshakeexception')){
+    return 'Reach could not contact its server. Check Wi-Fi or mobile data and retry.';
+  }
+  return raw.replaceFirst('Exception: ','').replaceFirst('Bad state: ','');
 }
+
 void popSafe(BuildContext context){if(context.mounted && Navigator.canPop(context)) Navigator.pop(context);}
 Widget gap(double h)=>SizedBox(height:h);
 
@@ -372,6 +381,18 @@ class _ReachHomeState extends State<ReachHome>{
     });
     if(mounted)watchLiveAlerts();
   }
+  // Preference writes already return the verified database row. Refresh the
+  // parent snapshot quietly, never stacking a secondary RPC error on a switch
+  // that has just been acknowledged as saved.
+  Future<void> refreshProfileQuietly() async {
+    try {
+      final updated=await reach.profile().timeout(const Duration(seconds:16));
+      if(mounted)setState(()=>profile=updated);
+    }catch(e){
+      debugPrint('Reach preference profile refresh failed: ${humanError(e)}');
+    }
+  }
+
   Future<void> finishPermissionIntro() async {
     final prefs=await SharedPreferences.getInstance();
     await prefs.setBool('reach_permissions_intro_done_${reach.uid}',true);
@@ -404,7 +425,7 @@ class _ReachHomeState extends State<ReachHome>{
        visitedPages.contains(1)?MinePage(key:ValueKey('mine$revision'),onCreated:refreshed):const SizedBox.shrink(),
        visitedPages.contains(2)?InboxPage(key:inboxKey):const SizedBox.shrink(),
        visitedPages.contains(3)?const CirclesPage():const SizedBox.shrink(),
-       visitedPages.contains(4)?ProfilePage(profile:profile,onChanged:load,onTheme:widget.onTheme,
+       visitedPages.contains(4)?ProfilePage(profile:profile,onChanged:()=>unawaited(refreshProfileQuietly()),onTheme:widget.onTheme,
          themeMode:widget.themeMode,lookId:widget.lookId,onLook:widget.onLook):const SizedBox.shrink()
      ];
      return Scaffold(body:IndexedStack(index:page,children:pages),
