@@ -10,6 +10,7 @@ import 'config.dart';
 import 'models.dart';
 import 'repository.dart';
 import 'push_service.dart';
+import 'reach_auth_providers.dart';
 import 'reach_themes.dart';
 import 'chat_attachment_panel.dart';
 import 'business_studio.dart';
@@ -131,6 +132,8 @@ class _AuthPageState extends State<AuthPage> {
     name=TextEditingController(),username=TextEditingController(),
     verifyCode=TextEditingController();
   bool signup=false,loading=false,hide=true,agreed=false,awaitingConfirmation=false;
+  late final Future<bool> googleAvailable;
+  @override void initState(){super.initState();googleAvailable=ReachAuthProviders.googleEnabled();}
   @override void dispose(){
     email.dispose();pass.dispose();name.dispose();username.dispose();
     verifyCode.dispose();super.dispose();
@@ -242,9 +245,12 @@ class _AuthPageState extends State<AuthPage> {
               child:Text(signup?'Create account':'Sign in'))),
           gap(12),
           if(AppConfig.googleSignInEnabled)
-            OutlinedButton.icon(onPressed:loading?null:()=>action(reach.googleSignIn),
-            icon:const Icon(Icons.account_circle_outlined),
-            label:const Text('Continue with Google')),
+            FutureBuilder<bool>(future:googleAvailable,builder:(context,snapshot){
+              if(snapshot.data!=true)return const SizedBox.shrink();
+              return OutlinedButton.icon(onPressed:loading?null:()=>action(reach.googleSignIn),
+                icon:const Icon(Icons.account_circle_outlined),
+                label:const Text('Continue with Google'));
+            }),
           TextButton(onPressed:loading?null:()=>setState((){
             signup=!signup;awaitingConfirmation=false;
           }),child:Text(signup?'Already registered? Sign in':'New here? Create an account')),
