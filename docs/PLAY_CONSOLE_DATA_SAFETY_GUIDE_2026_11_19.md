@@ -27,7 +27,13 @@
 | Other user-provided content | Public group names/descriptions, posts, interest categories and opted-in people directory | Minimal name/username/city/country appear only with consent; bio and skills are public only if selected or for accepted connections |
 | Safety/support information | Report reason/detail, contact email and message via web support form | Operator-only reporting and spam-limiting hash for web support |
 
-**Age handling:** Birthdate is submitted transiently to check the 18+ threshold and is not retained; an adult self-attestation timestamp is retained. This is not documentary or identity verification. Account-created adult-only gates must be device tested.\n\n**Calling:** The QA AAB uses RECORD_AUDIO and CAMERA and foreground WebRTC signaling. Both adults must opt in and accept a connection; STUN-only cannot guarantee all mobile networks. Calling metadata and possible peer IP exposure must be reflected in the live privacy policy.\n\n**Moderation:** High-confidence text patterns and rate limits reject selected prohibited promotion/sales; false negatives/positives remain possible and reports need a human moderator. No automatic visual CSAM/NSFW detector exists; newly uploaded media are restricted.\n\n**Transport and storage:** The normal client/server path is HTTPS. Row-level security and private storage exist for data access; do not claim end-to-end encryption or unconditional malware scanning. Supabase processes the app's backend data.
+**Age handling:** Birthdate is submitted transiently to check the 18+ threshold and is not retained; an adult self-attestation timestamp is retained. This is not documentary or identity verification. Account-created adult-only gates must be device tested.
+
+**Calling:** The QA AAB uses RECORD_AUDIO and CAMERA and foreground WebRTC signaling. Both adults must opt in and accept a connection; STUN-only cannot guarantee all mobile networks. Calling metadata and possible peer IP exposure must be reflected in the live privacy policy.
+
+**Moderation:** High-confidence text patterns and rate limits reject selected prohibited promotion/sales; false negatives/positives remain possible and reports need a human moderator. No automatic visual CSAM/NSFW detector exists; newly uploaded media are restricted.
+
+**Transport and storage:** The normal client/server path is HTTPS. Row-level security and private storage exist for data access; do not claim end-to-end encryption or unconditional malware scanning. Supabase processes the app's backend data.
 
 **Sharing vs processing:** Carefully distinguish data processed by Supabase as service provider from user-visible sharing with other community members. Public posts and public-group metadata may be displayed to signed-in participants. Verify Google Play's precise definitions and answer for each actual data type.
 
@@ -59,4 +65,6 @@
 
 **Source of truth:** the exact signed Reach AAB and actual live app. A completed CI build is not Play authorization.
 
-**People directory:** All profiles default to hidden and private, with calling disabled. Members can independently opt in to people discovery, public bio/skills, and calls. Two-device account tests are mandatory.\n\n**Country/city autocomplete:** Static GeoNames data is bundled in the app. Searching location names does not call a remote autocomplete or geocoding service, and does not request device location. Optional nearby location permission is proposed from a first-use explanation after verified account/profile setup and can be skipped. File attachments use the system picker, not broad storage access.
+**People directory:** All profiles default to hidden and private, with calling disabled. Members can independently opt in to people discovery, public bio/skills, and calls. Two-device account tests are mandatory.
+
+**Country/city autocomplete:** Static GeoNames data is bundled in the app. Searching location names does not call a remote autocomplete or geocoding service, and does not request device location. Optional nearby location permission is proposed from a first-use explanation after verified account/profile setup and can be skipped. File attachments use the system picker, not broad storage access.
