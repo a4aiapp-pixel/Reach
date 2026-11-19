@@ -60,8 +60,24 @@ class ReachRepository {
 
   Future<Map<String, dynamic>> profile() async =>
       Map<String, dynamic>.from(await client.from('profiles').select().eq('id', uid).single());
-  Future<void> updateProfile(Map<String, dynamic> values) async =>
-      client.from('profiles').update(values).eq('id', uid).then((_) {});
+  /// A successful HTTP response alone is not proof a preference changed: an
+  /// RLS-filtered UPDATE may affect zero rows. Require the returned own profile,
+  /// then verify privacy/calling switches against the database response.
+  Future<void> updateProfile(Map<String, dynamic> values) async {
+    final me=uid;
+    if(me.isEmpty)throw StateError('Sign in before updating your profile.');
+    if(values.isEmpty)return;
+    final row=Map<String,dynamic>.from(
+      await client.from('profiles').update(values).eq('id',me)
+        .select().single());
+    if(row['id']!=me)throw StateError('Profile update was not confirmed.');
+    for(final entry in values.entries){
+      if((entry.value is bool || entry.key=='profile_visibility') &&
+          row[entry.key]!=entry.value){
+        throw StateError('Profile preference could not be confirmed as saved.');
+      }
+    }
+  }
 
   Future<void> confirmAdult(DateTime birthday) async {
     final date='${birthday.year.toString().padLeft(4,'0')}-'
