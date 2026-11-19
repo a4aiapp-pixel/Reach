@@ -73,11 +73,11 @@ For download use the individual artifacts shown in the latest successful workflo
 **Approved Play icon:** The three connected-person figures in a location pin supported by a hand. Download its versioned 512×512 PNG from the corresponding successful GitHub Actions v1.0.7 branding artifact. App name remains **Reach**.
 
 ## Compiled-permission evidence (v1.0.7)
-The signed AAB now has an automated audit of the ACTUAL base Android manifest. Enabled by default: internet, network status as required by SDKs, and **optional foreground coarse location** for approximate discovery. The release build must reject dormant notifications, precise location, audio, Bluetooth and camera permissions. Review `PLAY-PERMISSION-AUDIT.json` attached to the new signed AAB artifact before upload. A permission audit is not a substitute for live-device behavior checks.
+The signed AAB now has an automated audit of the ACTUAL base Android manifest. Enabled by default: internet, network status as required by SDKs, and **optional foreground coarse location** for approximate discovery. This internal QA build must reject dormant background notifications, precise location and broad-storage permissions; microphone and camera permissions are intentionally present for opt-in foreground voice/video calls. Public release requires two-device acceptance and truthful Play data-safety declarations. Review `PLAY-PERMISSION-AUDIT.json` attached to the new signed AAB artifact before upload. A permission audit is not a substitute for live-device behavior checks.
 
 **Current Play artwork:** official three-person pin icon from Reach v1.0.4 branding and separate 1024×500 feature graphic prepared for the launch pack. Genuine in-app screenshots remain outstanding until physical Android testing.
 
-**v1.0.7 release note:** Profile and setup country/city fields now suggest from locally bundled GeoNames directory. No search text or GPS coordinates are sent to a location autocomplete API. After profile setup, first-use optional approximate location consent is offered; decline does not block Reach. Storage/file selection remains through Android picker; microphone/camera/push remain off. Attribution: `docs/GEO_DATA_ATTRIBUTION.md`.
+**v1.0.7 release note:** Profile and setup country/city fields now suggest from locally bundled GeoNames directory. No search text or GPS coordinates are sent to a location autocomplete API. After profile setup, first-use optional approximate location consent is offered; decline does not block Reach. Storage/file selection remains through Android picker; background push remains off, while camera and microphone are used only after a foreground call is accepted. Attribution: `docs/GEO_DATA_ATTRIBUTION.md`.
 
 ## v1.0.7 feature gates (19 November 2026)
 
