@@ -63,18 +63,23 @@ void main(){
   });
 
   testWidgets('Rail is available only when viewport is spacious', (tester)async{
-    late bool wide;
-    await tester.binding.setSurfaceSize(const Size(1000,700));
-    await tester.pumpWidget(MaterialApp(
+    late bool useRail;
+    Widget host(Size logicalSize)=>MaterialApp(
       theme:reachLookById('circuit').build(Brightness.dark),
-      home:Builder(builder:(context){
-        wide=ReachAdaptiveNavigation.shouldUseRail(context);
-        return const Scaffold(body:Text('Rail test'));
-      })));
-    expect(wide,isTrue);
-    await tester.binding.setSurfaceSize(const Size(390,750));
-    await tester.pump();
-    expect(wide,isFalse);
-    await tester.binding.setSurfaceSize(null);
+      home:MediaQuery(
+        data:MediaQueryData(size:logicalSize),
+        child:Builder(builder:(context){
+          useRail=ReachAdaptiveNavigation.shouldUseRail(context);
+          return const Scaffold(body:Text('Rail test'));
+        }),
+      ),
+    );
+    await tester.pumpWidget(host(const Size(1000,700)));
+    expect(useRail,isTrue);
+    await tester.pumpWidget(host(const Size(390,750)));
+    expect(useRail,isFalse);
+    await tester.pumpWidget(host(const Size(800,400)));
+    expect(useRail,isFalse);
   });
+
 }
