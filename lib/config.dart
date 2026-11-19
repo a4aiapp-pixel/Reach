@@ -6,7 +6,7 @@ class AppConfig {
   static const callback = 'reachnetwork://auth-callback';
   static const callingEnabled = bool.fromEnvironment('ENABLE_REACH_CALLS', defaultValue:false);
   static const aiEnabled = bool.fromEnvironment('ENABLE_REACH_AI',defaultValue:false);
-  static const googleSignInEnabled = bool.fromEnvironment('ENABLE_GOOGLE_AUTH', defaultValue:false);
+  // Opt-in by verified server capability: the sign-in screen only shows Google\n  // when /auth/v1/settings reports an enabled Google provider.\n  static const googleSignInEnabled = bool.fromEnvironment('ENABLE_GOOGLE_AUTH', defaultValue:true);
   static const appName = 'Reach';
   static const legalBase = String.fromEnvironment('LEGAL_BASE_URL', defaultValue: 'https://ffnhidnnqpamewcepxrr.supabase.co/functions/v1/reach-legal');
   static const supportEmail = String.fromEnvironment('SUPPORT_EMAIL');
