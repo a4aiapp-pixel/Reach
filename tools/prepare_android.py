@@ -78,7 +78,18 @@ if os.environ.get('REACH_ENABLE_CALLS') == '1':
 # If push/calling is explicitly enabled later, regenerate and re-audit the AAB.
 ET.register_namespace('tools', 'http://schemas.android.com/tools')
 T='{http://schemas.android.com/tools}'
-remove_permissions={'android.permission.ACCESS_FINE_LOCATION'}
+remove_permissions={
+    'android.permission.ACCESS_FINE_LOCATION',
+    # Android document picker grants scoped URI access: never require broad
+    # media/storage access even in calling-enabled internal QA builds.
+    'android.permission.READ_EXTERNAL_STORAGE',
+    'android.permission.WRITE_EXTERNAL_STORAGE',
+    'android.permission.MANAGE_EXTERNAL_STORAGE',
+    'android.permission.READ_MEDIA_IMAGES',
+    'android.permission.READ_MEDIA_VIDEO',
+    'android.permission.READ_MEDIA_AUDIO',
+    'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
+}
 if os.environ.get('REACH_ENABLE_PUSH') != '1':
     remove_permissions.update({
         'android.permission.POST_NOTIFICATIONS',
