@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 # Calls are enabled only for internal QA candidates. Camera/mic permission
 # is still gated by per-member consent and accepted connections.
@@ -149,32 +149,6 @@ jobs:
           Play credentials and release signing before public distribution.
           EOF
 
-      - name: Upload universal APK separately
-        uses: actions/upload-artifact@v4
-        with:
-          name: Reach-v1.1.0-Universal-APK
-          path: dist/Reach-v1.1.0-universal-connected.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload ARM64 APK separately
-        uses: actions/upload-artifact@v4
-        with:
-          name: Reach-v1.1.0-ARM64-APK
-          path: dist/Reach-v1.1.0-arm64-v8a-connected.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload checksums and build notes
-        uses: actions/upload-artifact@v4
-        with:
-          name: Reach-v1.1.0-Build-Checksums
-          path: |
-            dist/SHA256SUMS.txt
-            dist/README.txt
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Export official 512px Reach Play icon
         shell: bash
         run: |
@@ -184,17 +158,6 @@ jobs:
           cp assets/branding/reach_play_store_icon_512.png dist/Reach-v1.1.0-Play-Icon-512.png
           file dist/Reach-v1.1.0-Play-Icon-512.png
 
-      - name: Upload Reach approved branding artwork
-        uses: actions/upload-artifact@v4
-        with:
-          name: Reach-v1.1.0-Official-Icon-512
-          path: dist/Reach-v1.1.0-Play-Icon-512.png
-          if-no-files-found: error
-          retention-days: 14
-
-      # Always compile an upload-key-signed Play AAB whenever the four existing
-      # signing secrets are present. Publisher contact and Console approval are
-      # independent release gates, not reasons to withhold a candidate bundle.
       - name: Confirm live privacy and account-deletion policy URLs
         shell: bash
         run: |
@@ -227,18 +190,47 @@ jobs:
             | grep -E 'Owner:|SHA256:|Signature algorithm name:' > dist/PLAY-SIGNING-INFO.txt
           cat dist/PLAY-SIGNING-INFO.txt
 
-      - name: Upload signed Play internal-test AAB
+      # GitHub Actions artifact storage is exhausted on the free account.
+      # Private GitHub Release assets are a different storage category and
+      # provide direct per-file links without adding paid charges. This is
+      # strictly a QA pre-release, never a Google Play production publication.
+      - name: Publish signed build as private-repository QA pre-release
         if: env.REACH_SIGNING_ENABLED == '1'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Reach-v1.1.0-SIGNED-AAB-INTERNAL-TEST
-          path: |
-            dist/Reach-v1.1.0-signed-Play-INTERNAL-TEST.aab
-            dist/PLAY-AAB-SHA256.txt
-            dist/PLAY-SIGNING-INFO.txt
-            dist/PLAY-PERMISSION-AUDIT.json
-          if-no-files-found: error
-          retention-days: 14
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="reach-v1.1.0-qa-${GITHUB_SHA:0:10}"
+          for file in \
+            dist/Reach-v1.1.0-universal-connected.apk \
+            dist/Reach-v1.1.0-arm64-v8a-connected.apk \
+            dist/Reach-v1.1.0-signed-Play-INTERNAL-TEST.aab \
+            dist/PLAY-PERMISSION-AUDIT.json \
+            dist/PLAY-SIGNING-INFO.txt \
+            dist/PLAY-AAB-SHA256.txt \
+            dist/SHA256SUMS.txt \
+            dist/README.txt \
+            dist/Reach-v1.1.0-Play-Icon-512.png; do
+            test -s "$file"
+          done
+          gh release create "$tag" \
+            dist/Reach-v1.1.0-universal-connected.apk \
+            dist/Reach-v1.1.0-arm64-v8a-connected.apk \
+            dist/Reach-v1.1.0-signed-Play-INTERNAL-TEST.aab \
+            dist/PLAY-PERMISSION-AUDIT.json \
+            dist/PLAY-SIGNING-INFO.txt \
+            dist/PLAY-AAB-SHA256.txt \
+            dist/SHA256SUMS.txt \
+            dist/README.txt \
+            dist/Reach-v1.1.0-Play-Icon-512.png \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Reach v1.1.0 - signed internal QA (${GITHUB_SHA:0:10})" \
+            --notes "Internal testing candidate, NOT a verified Google Play production release. Includes ten redesigned Reach themes, separate universal/ARM64 APKs, persistent upload-key signed AAB, SHA-256 checksums, and Android permission audit. Two-account calling, discovery, moderation and real-device acceptance are still pending."
+          echo "QA release: https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '[.assets[].name] | sort | .[]'
 
       - name: Securely discard Play signing material
         if: always()
