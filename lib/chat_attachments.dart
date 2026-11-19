@@ -7,15 +7,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// A deliberately small, strictly private attachment transport for an
 /// already-approved 1:1 chat. No public URLs, arbitrary executable files,
 /// external storage permissions, or unbounded uploads.
+/// Media sharing stays off until a real safety scanner/review pipeline exists.
 class ReachAttachments {
   ReachAttachments(this.client);
   final SupabaseClient client;
   static const bucket = 'reach-chat';
   static const maxBytes = 6 * 1024 * 1024;
   static const extensions = <String>[
-    'pdf','txt','csv','doc','docx','xls','xlsx','ppt','pptx',
-    'jpg','jpeg','png','webp','gif','mp3','m4a','aac','ogg','wav',
-    'mp4','mov','webm'
+    'pdf','txt','csv','doc','docx','xls','xlsx','ppt','pptx'
   ];
 
   static String mimeFor(String filename) {
