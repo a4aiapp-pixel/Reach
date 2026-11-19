@@ -61,6 +61,34 @@ class _ChatAttachmentsPanelState extends State<ChatAttachmentsPanel> {
     }
   }
 
+  Future<void> reportFile(Map<String,dynamic> file) async {
+    final reason=await showDialog<String>(context:context,builder:(ctx)=>SimpleDialog(
+      title:const Text('Report unsafe attachment'),
+      children:[
+        for(final entry in const <String,String>{
+          'adult_content':'Pornographic or sexual material',
+          'child_safety':'Child safety concern',
+          'illegal_content':'Illegal or dangerous material',
+          'harassment':'Harassment',
+          'fraud':'Fraud or scam',
+          'unsafe':'Other unsafe content',
+        }.entries)SimpleDialogOption(
+          onPressed:()=>Navigator.pop(ctx,entry.key),
+          child:Text(entry.value)),
+      ]));
+    if(reason==null)return;
+    final user=Supabase.instance.client.auth.currentUser;
+    if(user==null)return;
+    try{
+      await Supabase.instance.client.from('reports').insert({
+        'reporter_id':user.id,'target_type':'attachment',
+        'target_id':file['id'],'reason':reason,
+        'detail':'User reported this private chat attachment for review.',
+      });
+      notice('Report submitted. A moderator must review this file.');
+    }catch(e){notice(e);}
+  }
+
   @override Widget build(BuildContext context)=>Container(
     padding:const EdgeInsets.symmetric(horizontal:10,vertical:4),
     decoration:BoxDecoration(
@@ -70,11 +98,11 @@ class _ChatAttachmentsPanelState extends State<ChatAttachmentsPanel> {
       Row(children:[
         const Icon(Icons.folder_shared_outlined,size:18),
         const SizedBox(width:8),
-        Expanded(child:Text('Private chat files',
+        Expanded(child:Text('Private chat documents',
           style:Theme.of(context).textTheme.labelLarge)),
         Text('6 MB/file',style:Theme.of(context).textTheme.labelSmall),
         IconButton(
-          tooltip:'Share documents, photos, audio or video',
+          tooltip:'Share documents (photos/video blocked pending safety screening)',
           onPressed:uploading?null:attach,
           icon:uploading?
             const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)):
@@ -124,6 +152,17 @@ class _ChatAttachmentsPanelState extends State<ChatAttachmentsPanel> {
                               maxLines:1,style:Theme.of(context).textTheme.labelSmall)
                           ],
                         )),
+                        PopupMenuButton<String>(
+                          tooltip:'Attachment actions',
+                          icon:const Icon(Icons.more_vert,size:17),
+                          onSelected:(v){
+                            if(v=='delete')removeFile(file);
+                            if(v=='report')reportFile(file);
+                          },
+                          itemBuilder:(_)=>[
+                            if(own)const PopupMenuItem(value:'delete',child:Text('Delete file')),
+                            if(!own)const PopupMenuItem(value:'report',child:Text('Report unsafe file')),
+                          ]),
                       ]),
                     ),
                   ),
