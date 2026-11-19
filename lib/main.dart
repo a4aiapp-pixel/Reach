@@ -306,6 +306,53 @@ class _ReachHomeState extends State<ReachHome>{
   int page=0;int revision=0;bool ready=false;bool showIntro=false;
   Map<String,dynamic> profile={};
   final Set<int> visitedPages={0};
+  final GlobalKey<_InboxPageState> inboxKey=GlobalKey<_InboxPageState>();
+  StreamSubscription<List<Map<String,dynamic>>>? alertUpdates;
+  final Set<String> knownAlerts={};
+  bool alertsInitialized=false;
+  int unreadAlerts=0;
+  @override void dispose(){
+    alertUpdates?.cancel();
+    unawaited(ReachPush.dispose());
+    super.dispose();
+  }
+  void watchLiveAlerts(){
+    if(alertUpdates!=null||reach.uid.isEmpty)return;
+    alertUpdates=Supabase.instance.client.from('alerts')
+      .stream(primaryKey:['id']).eq('user_id',reach.uid)
+      .order('created_at',ascending:false).limit(50)
+      .listen((rows){
+        if(!mounted)return;
+        final fresh=alertsInitialized
+          ? rows.where((item)=>!knownAlerts.contains(str(item['id']))).toList()
+          : <Map<String,dynamic>>[];
+        knownAlerts..clear()..addAll(rows.map((item)=>str(item['id'])));
+        alertsInitialized=true;
+        final unread=rows.where((item)=>item['read_at']==null).length;
+        if(unread!=unreadAlerts)setState(()=>unreadAlerts=unread);
+        if(fresh.isNotEmpty){
+          if(page==2&&inboxKey.currentState!=null){
+            unawaited(inboxKey.currentState!.refresh());
+          }
+          if(profile['notify_on']==true){
+            final latest=fresh.first;
+            final messenger=ScaffoldMessenger.of(context);
+            messenger.hideCurrentSnackBar();
+            messenger.showSnackBar(SnackBar(
+              behavior:SnackBarBehavior.floating,
+              duration:const Duration(seconds:5),
+              content:Text('${str(latest['title'])}: ${str(latest['body'])}',
+                maxLines:2,overflow:TextOverflow.ellipsis),
+              action:SnackBarAction(label:'Inbox',onPressed:(){
+                if(mounted)setState((){page=2;visitedPages.add(2);});
+              }),
+            ));
+          }
+        }
+      },onError:(Object e){
+        debugPrint('Reach live alerts unavailable: $e');
+      });
+  }
   @override void initState(){super.initState();load();setupPush();}
   Future<void> setupPush() async {
     if(await ReachPush.prepare()) {
@@ -320,6 +367,7 @@ class _ReachHomeState extends State<ReachHome>{
     if(mounted)setState((){
       profile=p;ready=true;showIntro=!introDone;
     });
+    if(mounted)watchLiveAlerts();
   }
   Future<void> finishPermissionIntro() async {
     final prefs=await SharedPreferences.getInstance();
@@ -350,20 +398,28 @@ class _ReachHomeState extends State<ReachHome>{
     final pages=<Widget>[
        DiscoverPage(key:ValueKey('discover$revision'),onCreated:refreshed),
        visitedPages.contains(1)?MinePage(key:ValueKey('mine$revision'),onCreated:refreshed):const SizedBox.shrink(),
-       visitedPages.contains(2)?const InboxPage():const SizedBox.shrink(),
+       visitedPages.contains(2)?InboxPage(key:inboxKey):const SizedBox.shrink(),
        visitedPages.contains(3)?const CirclesPage():const SizedBox.shrink(),
        visitedPages.contains(4)?ProfilePage(profile:profile,onChanged:load,onTheme:widget.onTheme,
          themeMode:widget.themeMode,lookId:widget.lookId,onLook:widget.onLook):const SizedBox.shrink()
      ];
      return Scaffold(body:IndexedStack(index:page,children:pages),
-       bottomNavigationBar:NavigationBar(selectedIndex:page,onDestinationSelected:(i)=>setState((){
-         page=i;visitedPages.add(i);
-       }),
+       bottomNavigationBar:NavigationBar(selectedIndex:page,onDestinationSelected:(i){
+         setState((){page=i;visitedPages.add(i);});
+         if(i==2)WidgetsBinding.instance.addPostFrameCallback((_){
+           if(mounted&&inboxKey.currentState!=null)unawaited(inboxKey.currentState!.refresh());
+         });
+       },
         labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,
         destinations:const [
           NavigationDestination(icon:Icon(Icons.explore_outlined),selectedIcon:Icon(Icons.explore),label:'Discover'),
           NavigationDestination(icon:Icon(Icons.bolt_outlined),selectedIcon:Icon(Icons.bolt),label:'My Reach'),
-          NavigationDestination(icon:Icon(Icons.chat_bubble_outline),selectedIcon:Icon(Icons.chat_bubble),label:'Inbox'),
+          NavigationDestination(icon:Badge(isLabelVisible:unreadAlerts>0,
+              label:Text(unreadAlerts>49?'49+':'$unreadAlerts'),
+              child:const Icon(Icons.chat_bubble_outline)),
+            selectedIcon:Badge(isLabelVisible:unreadAlerts>0,
+              label:Text(unreadAlerts>49?'49+':'$unreadAlerts'),
+              child:const Icon(Icons.chat_bubble)),label:'Inbox'),
           NavigationDestination(icon:Icon(Icons.groups_outlined),selectedIcon:Icon(Icons.groups),label:'Groups'),
           NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Me'),
         ]));
@@ -711,10 +767,14 @@ class _InboxPageState extends State<InboxPage>{
   Padding(padding:const EdgeInsets.symmetric(horizontal:18),child:SegmentedButton<int>(
     segments:const [ButtonSegment(value:0,label:Text('Chats')),ButtonSegment(value:1,label:Text('Requests')),
       ButtonSegment(value:2,label:Text('Alerts'))],selected:{tab},
-    onSelectionChanged:(v){setState(()=>tab=v.first);if(tab==2)busy(context,reach.readAlerts);})),gap(10),
+    onSelectionChanged:(v){setState(()=>tab=v.first);if(tab==2)unawaited(markAlertsRead());})),gap(10),
   Expanded(child:loading?const Center(child:CircularProgressIndicator()):RefreshIndicator(onRefresh:refresh,
     child:ListView(padding:const EdgeInsets.fromLTRB(18,8,18,40),children:tab==0?_chatRows():tab==1?_requestRows():_alertRows()))),
  ]));
+ Future<void> markAlertsRead() async {
+   await busy(context,reach.readAlerts);
+   if(mounted)await refresh();
+ }
  List<Widget> _chatRows(){
   if(conversations.isEmpty)return [gap(80),emptyState(context,Icons.forum_outlined,'No conversations yet',
     'When someone accepts a request, your private chat appears here.')];
