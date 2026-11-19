@@ -887,7 +887,12 @@ class _ChatPageState extends State<ChatPage>{
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(
    title:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(widget.peerName),
      Text(widget.topic,style:Theme.of(context).textTheme.bodySmall,maxLines:1,overflow:TextOverflow.ellipsis)]),
-   actions:[PopupMenuButton<String>(onSelected:(v)async{
+   actions:[
+     if(AppConfig.callingEnabled)IconButton(
+       tooltip:'Recheck calling consent',
+       onPressed:()=>setState(()=>canCall=reach.canCall(widget.peerId)),
+       icon:const Icon(Icons.refresh_rounded)),
+     PopupMenuButton<String>(onSelected:(v)async{
        if(v=='block'){await confirmBlock(context,widget.peerId,widget.peerName);if(context.mounted)Navigator.pop(context);}
        if(v=='report') await showReportDialog(context,'user',widget.peerId);
      },itemBuilder:(_)=>const [PopupMenuItem(value:'report',child:Text('Report member')),
@@ -1398,7 +1403,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.0.6 · Built for trust and usefulness',
+   ])),gap(18),Center(child:Text('Reach 1.0.7 · Consent, safety and discovery',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }
