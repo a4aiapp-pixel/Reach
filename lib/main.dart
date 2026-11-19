@@ -334,7 +334,7 @@ class _ReachHomeState extends State<ReachHome>{
         final unread=rows.where((item)=>item['read_at']==null).length;
         if(unread!=unreadAlerts)setState(()=>unreadAlerts=unread);
         if(fresh.isNotEmpty){
-          if(page==2&&inboxKey.currentState!=null){
+          if(page==2&&inboxKey.currentState?.tab==2){
             unawaited(inboxKey.currentState!.refresh());
           }
           if(profile['notify_on']==true){
@@ -753,29 +753,47 @@ class _ComposePageState extends State<ComposePage>{
 
 class InboxPage extends StatefulWidget{const InboxPage({super.key});@override State<InboxPage> createState()=>_InboxPageState();}
 class _InboxPageState extends State<InboxPage>{
- int tab=0;bool loading=true;
+ int tab=0;
+ bool loading=true;
+ int loadSerial=0;
+ String? loadError;
  List<ReachRequest> incoming=[],outgoing=[];
  List<Map<String,dynamic>> conversations=[],alerts=[],memberRequests=[];
- @override void initState(){super.initState();refresh();}
- Future<void> refresh()async{
-  final values=await Future.wait<Object?>([
-    busy(context,()=>reach.requests()),
-    busy(context,()=>reach.requests(incoming:false)),
-    busy(context,reach.conversations),
-    busy(context,reach.alerts),
-    busy(context,reach.memberRequests)
-  ]);
-  if(mounted)setState((){
-    final a=values[0] as List<ReachRequest>?;
-    final b=values[1] as List<ReachRequest>?;
-    final c=values[2] as List<Map<String,dynamic>>?;
-    final d=values[3] as List<Map<String,dynamic>>?;
-    if(a!=null)incoming=a;if(b!=null)outgoing=b;
-    if(c!=null)conversations=c;if(d!=null)alerts=d;
-    final e=values[4] as List<Map<String,dynamic>>?;
-    if(e!=null)memberRequests=e;
-    loading=false;
-  });
+
+ @override void initState(){super.initState();unawaited(refresh());}
+
+ /// Fetch only the visible tab. Never display an old Inbox RPC timeout
+ /// as an unrelated popup over the member's privacy settings.
+ Future<void> refresh() async {
+   final serial=++loadSerial;
+   final requestedTab=tab;
+   if(!mounted)return;
+   setState((){loading=true;loadError=null;});
+   try{
+     if(requestedTab==0){
+       final value=await reach.conversations()
+         .timeout(const Duration(seconds:18));
+       if(mounted&&serial==loadSerial)setState(()=>conversations=value);
+     }else if(requestedTab==1){
+       final values=await Future.wait<Object?>([
+         reach.requests().timeout(const Duration(seconds:18)),
+         reach.requests(incoming:false).timeout(const Duration(seconds:18)),
+         reach.memberRequests().timeout(const Duration(seconds:18)),
+       ]);
+       if(mounted&&serial==loadSerial)setState((){
+         incoming=values[0] as List<ReachRequest>;
+         outgoing=values[1] as List<ReachRequest>;
+         memberRequests=values[2] as List<Map<String,dynamic>>;
+       });
+     }else{
+       final value=await reach.alerts().timeout(const Duration(seconds:18));
+       if(mounted&&serial==loadSerial)setState(()=>alerts=value);
+     }
+   }catch(e){
+     if(mounted&&serial==loadSerial)setState(()=>loadError=humanError(e));
+   }finally{
+     if(mounted&&serial==loadSerial)setState(()=>loading=false);
+   }
  }
  @override Widget build(BuildContext context)=>SafeArea(child:Column(children:[
   Padding(padding:const EdgeInsets.fromLTRB(18,17,18,8),child:sectionHeader(context,'Inbox',
@@ -783,7 +801,20 @@ class _InboxPageState extends State<InboxPage>{
   Padding(padding:const EdgeInsets.symmetric(horizontal:18),child:SegmentedButton<int>(
     segments:const [ButtonSegment(value:0,label:Text('Chats')),ButtonSegment(value:1,label:Text('Requests')),
       ButtonSegment(value:2,label:Text('Alerts'))],selected:{tab},
-    onSelectionChanged:(v){setState(()=>tab=v.first);if(tab==2)unawaited(markAlertsRead());})),gap(10),
+    onSelectionChanged:(v){
+       setState(()=>tab=v.first);
+       unawaited(refresh());
+       if(tab==2)unawaited(markAlertsRead());
+     })),gap(10),
+  if(loadError!=null)Padding(
+    padding:const EdgeInsets.fromLTRB(18,4,18,8),
+    child:Row(children:[
+      Icon(Icons.wifi_off_outlined,color:Theme.of(context).colorScheme.error),
+      const SizedBox(width:9),
+      Expanded(child:Text(loadError!,
+        style:Theme.of(context).textTheme.bodySmall)),
+      TextButton(onPressed:()=>unawaited(refresh()),child:const Text('Retry')),
+    ])),
   Expanded(child:loading?const Center(child:CircularProgressIndicator()):RefreshIndicator(onRefresh:refresh,
     child:ListView(padding:const EdgeInsets.fromLTRB(18,8,18,40),children:tab==0?_chatRows():tab==1?_requestRows():_alertRows()))),
  ]));
