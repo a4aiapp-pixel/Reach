@@ -442,7 +442,7 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
       ]));
   }
 
-  @override Widget build(BuildContext context)=>DefaultTabController(
+  Widget roster(){
     if(loading)return const Center(child:CircularProgressIndicator());
     if(error!=null)return empty(Icons.error_outline,'Could not load members',error!);
     return RefreshIndicator(onRefresh:refresh,
