@@ -97,6 +97,7 @@ void main(){
             title:'My community',
             subtitle:'A useful place to connect and share',
             icon:Icons.groups_outlined))))));
+      await tester.pumpAndSettle();
       expect(find.byKey(ValueKey('reach-header-${look.id}')),findsOneWidget,
         reason:'Missing app-wide page personality in ${look.id}');
       expect(find.text('My community'),findsOneWidget);
