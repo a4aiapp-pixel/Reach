@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reach_network/reach_themes.dart';
 import 'package:reach_network/reach_navigation.dart';
+import 'package:reach_network/reach_experience.dart';
 
 void main(){
   test('Ten presets have unique structural design combinations',(){
@@ -54,11 +55,15 @@ void main(){
           bottomNavigationBar:ReachAdaptiveNavigation(
             selectedIndex:0,unreadCount:4,onSelected:(i)=>selected=i),
         )));
-      expect(find.text('My Reach'),findsOneWidget);
-      expect(find.text('Inbox'),findsOneWidget);
-      await tester.tap(find.text('Inbox'));
+      expect(find.text('Chats'),findsOneWidget);
+      expect(find.text('Calls'),findsOneWidget);
+      expect(find.text('Groups'),findsOneWidget);
+      await tester.tap(find.text('Calls'));
       await tester.pump();
-      expect(selected,2,reason:'Tap must work in $id navigation');
+      expect(selected,2,reason:'Direct call controller must work in $id navigation');
+      await tester.tap(find.text('Chats'));
+      await tester.pump();
+      expect(selected,1,reason:'Direct chat controller must work in $id navigation');
     }
   });
 
@@ -80,6 +85,38 @@ void main(){
     expect(useRail,isFalse);
     await tester.pumpWidget(host(const Size(800,400)));
     expect(useRail,isFalse);
+  });
+
+  testWidgets('Every design language renders a distinctive page header',
+      (tester)async{
+    for(final look in reachLooks){
+      await tester.pumpWidget(MaterialApp(
+        theme:look.build(Brightness.light),
+        home:Scaffold(body:SafeArea(child:SingleChildScrollView(
+          child:ReachExperienceHeader(
+            title:'My community',
+            subtitle:'A useful place to connect and share',
+            icon:Icons.groups_outlined))))));
+      expect(find.byKey(ValueKey('reach-header-${look.id}')),findsOneWidget,
+        reason:'Missing app-wide page personality in ${look.id}');
+      expect(find.text('My community'),findsOneWidget);
+      expect(tester.takeException(),isNull);
+    }
+  });
+
+  testWidgets('Quick actions have working callbacks and remain scrollable',
+      (tester)async{
+    var selection=-1;
+    await tester.pumpWidget(MaterialApp(
+      theme:reachLookById('circuit').build(Brightness.dark),
+      home:Scaffold(body:ReachActionStrip(actions:[
+        for(var i=0;i<7;i++)
+          ReachQuickAction('Action $i',Icons.add,()=>selection=i),
+      ]))));
+    await tester.tap(find.text('Action 0'));
+    await tester.pump();
+    expect(selection,0);
+    expect(tester.takeException(),isNull);
   });
 
 }

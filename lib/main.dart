@@ -13,6 +13,9 @@ import 'push_service.dart';
 import 'reach_auth_providers.dart';
 import 'reach_themes.dart';
 import 'reach_navigation.dart';
+import 'reach_group_workspace.dart';
+import 'reach_experience.dart';
+import 'reach_calls_hub.dart';
 import 'reach_discover_design.dart';
 import 'chat_attachment_panel.dart';
 import 'business_studio.dart';
@@ -314,6 +317,7 @@ class ReachHome extends StatefulWidget {
     required this.lookId,required this.onLook});
   final ValueChanged<ThemeMode> onTheme;final ThemeMode themeMode;
   final String lookId;final ValueChanged<String> onLook;
+ final VoidCallback onMyReach;
   @override State<ReachHome> createState()=>_ReachHomeState();
 }
 class _ReachHomeState extends State<ReachHome>{
@@ -345,7 +349,7 @@ class _ReachHomeState extends State<ReachHome>{
         final unread=rows.where((item)=>item['read_at']==null).length;
         if(unread!=unreadAlerts)setState(()=>unreadAlerts=unread);
         if(fresh.isNotEmpty){
-          if(page==2&&inboxKey.currentState?.tab==2){
+          if(page==1&&inboxKey.currentState?.tab==2){
             unawaited(inboxKey.currentState!.refresh());
           }
           if(profile['notify_on']==true){
@@ -358,7 +362,7 @@ class _ReachHomeState extends State<ReachHome>{
               content:Text('${str(latest['title'])}: ${str(latest['body'])}',
                 maxLines:2,overflow:TextOverflow.ellipsis),
               action:SnackBarAction(label:'Inbox',onPressed:(){
-                if(mounted)setState((){page=2;visitedPages.add(2);});
+                if(mounted)setState((){page=1;visitedPages.add(1);});
               }),
             ));
           }
@@ -424,15 +428,23 @@ class _ReachHomeState extends State<ReachHome>{
     );
     final pages=<Widget>[
        DiscoverPage(key:ValueKey('discover$revision'),onCreated:refreshed),
-       visitedPages.contains(1)?MinePage(key:ValueKey('mine$revision'),onCreated:refreshed):const SizedBox.shrink(),
-       visitedPages.contains(2)?InboxPage(key:inboxKey):const SizedBox.shrink(),
+       visitedPages.contains(1)?InboxPage(key:inboxKey):const SizedBox.shrink(),
+       visitedPages.contains(2)?ReachCallsHub(
+         onOpenConversation:(c)=>Navigator.push(context,MaterialPageRoute(
+           builder:(_)=>ChatPage(
+             conversationId:str(c['id']),peerId:str(c['peer_id']),
+             peerName:str(c['peer_name']),topic:str(c['post_title']))))):const SizedBox.shrink(),
        visitedPages.contains(3)?const CirclesPage():const SizedBox.shrink(),
-       visitedPages.contains(4)?ProfilePage(profile:profile,onChanged:()=>unawaited(refreshProfileQuietly()),onTheme:widget.onTheme,
-         themeMode:widget.themeMode,lookId:widget.lookId,onLook:widget.onLook):const SizedBox.shrink()
+       visitedPages.contains(4)?ProfilePage(
+          profile:profile,onChanged:()=>unawaited(refreshProfileQuietly()),
+          onTheme:widget.onTheme,themeMode:widget.themeMode,
+          lookId:widget.lookId,onLook:widget.onLook,
+          onMyReach:()=>Navigator.push(context,MaterialPageRoute(
+             builder:(_)=>MinePage(onCreated:refreshed)))):const SizedBox.shrink(),
      ];
      void selectPage(int i){
         setState((){page=i;visitedPages.add(i);});
-        if(i==2)WidgetsBinding.instance.addPostFrameCallback((_){
+        if(i==1)WidgetsBinding.instance.addPostFrameCallback((_){
           if(mounted&&inboxKey.currentState!=null){
             unawaited(inboxKey.currentState!.refresh());
           }
@@ -451,6 +463,14 @@ class _ReachHomeState extends State<ReachHome>{
         bottomNavigationBar:rail?null:ReachAdaptiveNavigation(
           selectedIndex:page,onSelected:selectPage,
           unreadCount:unreadAlerts),
+        floatingActionButton:page==0?FloatingActionButton.extended(
+          tooltip:'Create an offer or request',
+          onPressed:()async {
+            final saved=await Navigator.push<bool>(context,
+              MaterialPageRoute(builder:(_)=>const ComposePage()));
+            if(saved==true)refreshed();
+          },
+          icon:const Icon(Icons.add_rounded),label:const Text('Create Reach')):null,
       );
   }
 }
@@ -573,6 +593,28 @@ class _DiscoverPageState extends State<DiscoverPage>{
         onAssist:()=>Navigator.push(context,
           MaterialPageRoute(builder:(_)=>const ReachAssistPage())),
         onRefresh:refresh),
+      ReachActionStrip(actions:[
+        ReachQuickAction('Offer',Icons.favorite_outline,()async{
+          final saved=await Navigator.push<bool>(context,MaterialPageRoute(
+            builder:(_)=>const ComposePage(initialType:'offer')));
+          if(saved==true)widget.onCreated();
+        }),
+        ReachQuickAction('Request',Icons.pan_tool_alt_outlined,()async{
+          final saved=await Navigator.push<bool>(context,MaterialPageRoute(
+            builder:(_)=>const ComposePage(initialType:'request')));
+          if(saved==true)widget.onCreated();
+        }),
+        ReachQuickAction('Find people',Icons.person_search_outlined,()=>
+          Navigator.push(context,MaterialPageRoute(
+            builder:(_)=>ReachPeoplePage(chatBuilder:(id,peer,name)=>
+              ChatPage(conversationId:id,peerId:peer,peerName:name,
+                topic:'Direct connection'))))),
+        if(!shortScreen)
+          ReachQuickAction('Groups',Icons.groups_2_outlined,()=>
+            Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>const CirclesPage()))),
+      ]),
+      gap(look.compact?9:12),
       gap(look.compact?9:15),
     TextField(controller:search,onChanged:(_){debounce?.cancel();debounce=Timer(const Duration(milliseconds:400),refresh);},
       decoration:const InputDecoration(hintText:'Search help, skills or opportunities',prefixIcon:Icon(Icons.search_rounded))),gap(13),
@@ -660,6 +702,140 @@ class ReachCard extends StatelessWidget {
     final status=offer?'OFFERING HELP':'NEEDS HELP';
     final categoryLocation='${post.category} · ${post.city}';
     final action=owner?'Manage':'Connect';
+
+    if(look.feed==ReachFeedLayout.glass){
+      // Coastal: airy glass-like cards with a large identity avatar and
+      // restrained information architecture rather than stacked tag grids.
+      return Card(margin:const EdgeInsets.only(bottom:14),
+        clipBehavior:Clip.antiAlias,
+        child:InkWell(onTap:onTap,child:Padding(
+          padding:const EdgeInsets.all(17),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Row(children:[
+              CircleAvatar(radius:22,
+                backgroundColor:accent.withValues(alpha:.14),
+                child:Icon(offer?Icons.favorite_border:
+                  Icons.pan_tool_alt_outlined,color:accent)),
+              const SizedBox(width:11),
+              Expanded(child:Column(
+                crossAxisAlignment:CrossAxisAlignment.start,children:[
+                Text(post.ownerName.isEmpty?'Reach member':post.ownerName,
+                  maxLines:1,overflow:TextOverflow.ellipsis,
+                  style:text.titleSmall?.copyWith(fontWeight:FontWeight.w800)),
+                Text('${post.city} · ${timeago.format(post.createdAt)}',
+                  maxLines:1,overflow:TextOverflow.ellipsis,
+                  style:text.bodySmall),
+              ])),
+              Icon(Icons.more_horiz_rounded,color:scheme.onSurfaceVariant),
+            ]),
+            const SizedBox(height:15),
+            Text(post.title,maxLines:3,overflow:TextOverflow.ellipsis,
+              style:text.titleLarge?.copyWith(fontWeight:FontWeight.w900)),
+            if(post.detail.isNotEmpty)...[
+              const SizedBox(height:7),
+              Text(post.detail,maxLines:3,overflow:TextOverflow.ellipsis),
+            ],
+            const SizedBox(height:14),
+            Row(children:[
+              Chip(label:Text(offer?'Offering help':'Needs help'),
+                avatar:Icon(offer?Icons.favorite_border:
+                  Icons.pan_tool_alt_outlined,size:15)),
+              const SizedBox(width:7),
+              Expanded(child:Text(post.category,textAlign:TextAlign.end,
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:text.labelSmall)),
+            ]),
+            Divider(color:scheme.outlineVariant),
+            Row(children:[
+              Icon(Icons.handshake_outlined,size:18,color:accent),
+              const SizedBox(width:8),
+              Text(owner?'Manage your Reach':'Connect with this member',
+                style:text.labelLarge?.copyWith(
+                  fontWeight:FontWeight.w800,color:scheme.primary)),
+              const Spacer(),
+              Icon(Icons.arrow_forward_rounded,color:accent),
+            ]),
+          ]),
+        )));
+    }
+
+    if(look.feed==ReachFeedLayout.timeline){
+      // Alpine: a chronological people-first feed, with an explicit
+      // timeline marker and editorial text rather than card mosaics.
+      return InkWell(onTap:onTap,child:Padding(
+        padding:const EdgeInsets.fromLTRB(4,12,4,13),
+        child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Column(children:[
+            CircleAvatar(radius:19,
+              child:Text(post.ownerName.isEmpty?'?':
+                post.ownerName.characters.first.toUpperCase())),
+            Container(width:2,height:94,
+              margin:const EdgeInsets.only(top:7),
+              color:scheme.outlineVariant),
+          ]),
+          const SizedBox(width:13),
+          Expanded(child:Column(
+            crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Row(children:[
+              Expanded(child:Text(post.ownerName.isEmpty?'Member':post.ownerName,
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:text.titleSmall?.copyWith(fontWeight:FontWeight.w800))),
+              Text(timeago.format(post.createdAt),style:text.labelSmall),
+            ]),
+            const SizedBox(height:5),
+            Text(post.title,maxLines:2,overflow:TextOverflow.ellipsis,
+              style:text.titleLarge?.copyWith(
+                fontFamily:look.font,fontWeight:FontWeight.w700)),
+            if(post.detail.isNotEmpty)...[
+              const SizedBox(height:5),
+              Text(post.detail,maxLines:2,overflow:TextOverflow.ellipsis),
+            ],
+            const SizedBox(height:8),
+            Wrap(spacing:12,runSpacing:7,children:[
+              miniTag(offer?Icons.favorite_outline:
+                Icons.pan_tool_alt_outlined,offer?'Offer':'Request'),
+              miniTag(Icons.location_on_outlined,post.city),
+              miniTag(Icons.category_outlined,post.category),
+            ]),
+            const SizedBox(height:8),
+            Text(owner?'Manage activity':'View and respond',
+              style:text.labelSmall?.copyWith(
+                color:scheme.primary,fontWeight:FontWeight.w800)),
+          ])),
+        ])));
+    }
+
+    if(look.feed==ReachFeedLayout.dashboard){
+      // Blueprint: precision-oriented activity rows with bold category
+      // identifiers and useful metadata in a compact two-level layout.
+      return Card(margin:const EdgeInsets.only(bottom:7),
+        child:InkWell(onTap:onTap,
+          child:Padding(padding:const EdgeInsets.all(12),child:Row(
+            crossAxisAlignment:CrossAxisAlignment.center,children:[
+            Container(width:43,height:54,alignment:Alignment.center,
+              decoration:BoxDecoration(
+                border:Border.all(color:accent,width:1.3),
+                borderRadius:BorderRadius.circular(4)),
+              child:Icon(offer?Icons.handshake_outlined:
+                Icons.help_outline,color:accent,size:23)),
+            const SizedBox(width:12),
+            Expanded(child:Column(
+              crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text('${offer?'OFFER':'REQUEST'} / ${post.category.toUpperCase()}',
+                maxLines:1,overflow:TextOverflow.ellipsis,
+                style:text.labelSmall?.copyWith(
+                  fontWeight:FontWeight.w900,color:scheme.primary,
+                  letterSpacing:.6)),
+              const SizedBox(height:3),
+              Text(post.title,maxLines:2,overflow:TextOverflow.ellipsis,
+                style:text.titleMedium?.copyWith(fontWeight:FontWeight.w900)),
+              const SizedBox(height:4),
+              Text('${post.ownerName} · ${post.city} · ${timeago.format(post.createdAt)}',
+                maxLines:1,overflow:TextOverflow.ellipsis,style:text.labelSmall),
+            ])),
+            const Icon(Icons.arrow_outward_rounded,size:20),
+          ]))));
+    }
 
     if(look.feed==ReachFeedLayout.compact){
       return Card(margin:const EdgeInsets.only(bottom:8),child:InkWell(
@@ -948,7 +1124,9 @@ class _MinePageState extends State<MinePage>{
 }
 
 class ComposePage extends StatefulWidget {
- const ComposePage({super.key,this.initialType='offer'});final String initialType;
+ const ComposePage({super.key,this.initialType='offer',this.initialCircleId});
+ final String initialType;
+ final String? initialCircleId;
  @override State<ComposePage> createState()=>_ComposePageState();
 }
 class _ComposePageState extends State<ComposePage>{
@@ -957,8 +1135,21 @@ class _ComposePageState extends State<ComposePage>{
  List<Map<String,dynamic>> circles=[];bool saving=false;
  final durations={'30 minutes':const Duration(minutes:30),'1 hour':const Duration(hours:1),
    '3 hours':const Duration(hours:3),'Today':const Duration(hours:24),'7 days':const Duration(days:7)};
- @override void initState(){super.initState();type=widget.initialType;load();}
- Future<void> load()async{final c=await busy(context,reach.circles);if(mounted&&c!=null)setState(()=>circles=c);}
+ @override void initState(){
+   super.initState();
+   type=widget.initialType;
+   circleId=widget.initialCircleId??'public';
+   load();
+ }
+ Future<void> load()async {
+   final c=await busy(context,reach.circles);
+   if(mounted&&c!=null)setState((){
+     circles=c;
+     if(circleId!='public'&&!circles.any((m)=>str(m['id'])==circleId)){
+       circleId='public';
+     }
+   });
+ }
  @override void dispose(){title.dispose();detail.dispose();super.dispose();}
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Create a Reach')),
   body:SafeArea(child:ListView(padding:const EdgeInsets.all(20),children:[
@@ -977,7 +1168,8 @@ class _ComposePageState extends State<ComposePage>{
    DropdownButtonFormField<String>(initialValue:duration,decoration:const InputDecoration(labelText:'Available for'),
      items:durations.keys.map((x)=>DropdownMenuItem(value:x,child:Text(x))).toList(),
      onChanged:(v)=>setState(()=>duration=v??duration)),gap(12),
-   DropdownButtonFormField<String>(initialValue:circleId,decoration:const InputDecoration(labelText:'Visible to'),
+   DropdownButtonFormField<String>(key:ValueKey('circle-$circleId-${circles.length}'),
+     initialValue:(circleId=='public'||circles.any((c)=>str(c['id'])==circleId))?circleId:'public',decoration:const InputDecoration(labelText:'Visible to'),
      items:[const DropdownMenuItem(value:'public',child:Text('Everyone in selected discovery area')),
        ...circles.map((c)=>DropdownMenuItem(value:str(c['id']),child:Text('Circle: ${c['name']}')))],
      onChanged:(v)=>setState(()=>circleId=v??'public')),gap(12),
@@ -1048,10 +1240,14 @@ class _InboxPageState extends State<InboxPage>{
    }
  }
  @override Widget build(BuildContext context)=>SafeArea(child:Column(children:[
-  Padding(padding:const EdgeInsets.fromLTRB(18,17,18,8),child:sectionHeader(context,'Inbox',
-    subtitle:'Messages open only after you agree',trailing:IconButton(onPressed:refresh,icon:const Icon(Icons.refresh)))),
+  Padding(padding:const EdgeInsets.fromLTRB(14,12,14,8),
+    child:ReachExperienceHeader(title:'Chats',
+      subtitle:'Direct messages, invitations and alerts',
+      icon:Icons.forum_outlined,
+      actions:IconButton(tooltip:'Refresh chats and activity',
+        onPressed:refresh,icon:const Icon(Icons.refresh_rounded)))),
   Padding(padding:const EdgeInsets.symmetric(horizontal:18),child:SegmentedButton<int>(
-    segments:const [ButtonSegment(value:0,label:Text('Chats')),ButtonSegment(value:1,label:Text('Requests')),
+    segments:const [ButtonSegment(value:0,label:Text('Direct')),ButtonSegment(value:1,label:Text('Requests')),
       ButtonSegment(value:2,label:Text('Alerts'))],selected:{tab},
     onSelectionChanged:(v){
        setState(()=>tab=v.first);
@@ -1193,8 +1389,16 @@ class _ChatPageState extends State<ChatPage>{
         return Align(alignment:mine?Alignment.centerRight:Alignment.centerLeft,child:ConstrainedBox(
          constraints:BoxConstraints(maxWidth:MediaQuery.sizeOf(c).width*.78),
          child:Container(margin:const EdgeInsets.symmetric(vertical:4),padding:const EdgeInsets.all(13),
-          decoration:BoxDecoration(color:mine?Theme.of(c).colorScheme.primaryContainer:
-            Theme.of(c).colorScheme.surfaceContainerHigh,borderRadius:BorderRadius.circular(17)),
+          decoration:BoxDecoration(
+            color:mine?Theme.of(c).colorScheme.primaryContainer:
+              Theme.of(c).colorScheme.surfaceContainerHigh,
+            borderRadius:BorderRadius.only(
+              topLeft:Radius.circular(ReachDesign.of(c).radius),
+              topRight:Radius.circular(ReachDesign.of(c).radius),
+              bottomLeft:Radius.circular(mine?ReachDesign.of(c).radius:5),
+              bottomRight:Radius.circular(mine?5:ReachDesign.of(c).radius)),
+            border:ReachDesign.of(c).outlined?Border.all(
+              color:Theme.of(c).colorScheme.outlineVariant):null),
           child:Column(crossAxisAlignment:CrossAxisAlignment.end,children:[
             Text(str(m['body'])),gap(5),
             Row(mainAxisSize:MainAxisSize.min,children:[
@@ -1317,6 +1521,7 @@ class _CirclesPageState extends State<CirclesPage> {
        isPublic:result['public'] as bool);
      await refresh();
    },success:'Group created. You are its owner and first member.');
+   if(mounted&&circles.isNotEmpty)unawaited(openGroup(circles.first));
  }
  Future<void> joinInvite() async {
    final code=await askText(context,title:'Join a private circle',
@@ -1325,14 +1530,35 @@ class _CirclesPageState extends State<CirclesPage> {
      await busy(context,()async{
        await reach.joinCircle(code);
        await refresh();
-     },success:'Invitation accepted. Welcome to the circle.');
+     },success:'Invitation accepted. Welcome to the group.');
+     if(mounted){
+       final m=circles.where((c)=>str(c['invite_code'])==code.trim().toUpperCase());
+       if(m.isNotEmpty)unawaited(openGroup(m.first));
+     }
    }
  }
  Future<void> joinPublic(String id) async {
    await busy(context,()async{
      await reach.joinPublicCommunity(id);
      await refresh();
-   },success:'Joined the group. Find member-only posts in Discover.');
+   },success:'Joined. Explore discussions and resources in the group.');
+   if(mounted){
+     final m=circles.where((c)=>str(c['id'])==id);
+     if(m.isNotEmpty)unawaited(openGroup(m.first));
+   }
+ }
+ Future<void> openGroup(Map<String,dynamic> group) async {
+   await Navigator.push(context,MaterialPageRoute(builder:(_)=>ReachGroupWorkspace(
+     group:group,
+     onCompose:(id)async{
+       await Navigator.push<bool>(context,MaterialPageRoute(
+         builder:(_)=>ComposePage(initialCircleId:id)));
+     },
+     onOpenReach:(post)async{
+       await showReachDetail(context,post,onChanged:refresh);
+     },
+   )));
+   if(mounted)await refresh();
  }
  Future<void> leaveOrDelete(Map<String,dynamic> c) async {
    final owner=c['owner_id']==reach.uid;
@@ -1395,8 +1621,12 @@ class _CirclesPageState extends State<CirclesPage> {
              maxLines:1,overflow:TextOverflow.ellipsis,
              style:Theme.of(context).textTheme.bodySmall)),
            member?FilledButton.tonalIcon(
-               onPressed:null,icon:const Icon(Icons.check_circle_outline),
-               label:const Text('Joined'))
+               onPressed:()async{
+                 final m=circles.where((c)=>str(c['id'])==id);
+                 if(m.isNotEmpty)await openGroup(m.first);
+                 else await refresh();
+               },icon:const Icon(Icons.arrow_forward_rounded),
+               label:const Text('Open'))
              :FilledButton.icon(onPressed:()=>joinPublic(id),
                icon:const Icon(Icons.group_add_outlined),
                label:const Text('Join'))
@@ -1423,31 +1653,45 @@ class _CirclesPageState extends State<CirclesPage> {
                  '${owner?'Owner':'Member'}',
                  style:Theme.of(context).textTheme.bodySmall)
              ])),
-           IconButton(tooltip:owner?'Delete group':'Leave group',
-             onPressed:()=>leaveOrDelete(c),
-             icon:Icon(owner?Icons.delete_outline:Icons.logout_rounded)),
+           IconButton(tooltip:'Open group workspace',
+             onPressed:()=>openGroup(c),icon:const Icon(Icons.open_in_new_rounded)),
+           PopupMenuButton<String>(tooltip:'Group actions',
+             onSelected:(v)async{
+               if(v=='share')await SharePlus.instance.share(ShareParams(
+                 text:'Join my Reach group "$name". Code: ${c['invite_code']}. '
+                   'Open Reach → Groups → Join by code.'));
+               if(v=='leave')await leaveOrDelete(c);
+             },
+             itemBuilder:(_)=>[
+               const PopupMenuItem(value:'share',child:Text('Invite members')),
+               PopupMenuItem(value:'leave',
+                 child:Text(owner?'Delete group':'Leave group')),
+             ]),
          ]),
          if(str(c['description']).isNotEmpty)...[
            gap(6),Text(str(c['description']),
              style:Theme.of(context).textTheme.bodyMedium)],
          gap(8),
-         if(isPublic)const Text('Publicly discoverable · posts visible to members',
-             style:TextStyle(fontSize:12))
-         else Row(children:[
+         if(isPublic)const Text('Public group · member-only discussions and resources',
+             style:TextStyle(fontSize:12)),
+         Row(children:[
            Expanded(child:SelectableText('Invite code: ${c['invite_code']}',
              style:Theme.of(context).textTheme.bodySmall)),
            IconButton(tooltip:'Share invite code',icon:const Icon(Icons.share_outlined),
              onPressed:()=>SharePlus.instance.share(ShareParams(
                text:'Join my private Reach circle “$name”. Code: ${c['invite_code']}'))),
          ]),
+         const SizedBox(height:10),
+         SizedBox(width:double.infinity,child:FilledButton.tonalIcon(
+           onPressed:()=>openGroup(c),icon:const Icon(Icons.groups_rounded),
+           label:const Text('Open group workspace'))),
        ])));
  }
 
  @override Widget build(BuildContext context)=>SafeArea(
    child:RefreshIndicator(onRefresh:refresh,child:ListView(
      padding:const EdgeInsets.fromLTRB(18,16,18,42),children:[
-       sectionHeader(context,'Groups & circles',
-         subtitle:'Discover shared interests or build a trusted space'),
+       ReachExperienceHeader(title:'Groups',subtitle:'Communities, invitations and shared spaces',icon:Icons.groups_rounded),
        gap(9),
        Row(children:[
          Expanded(child:FilledButton.icon(onPressed:()=>createGroup(),
@@ -1456,6 +1700,15 @@ class _CirclesPageState extends State<CirclesPage> {
          Expanded(child:OutlinedButton.icon(onPressed:joinInvite,
             icon:const Icon(Icons.key_outlined),label:const Text('Join by code')))
        ]),
+       gap(18),
+       sectionHeader(context,'Your groups',
+         subtitle:'Open discussions, group resources and members'),
+       gap(10),
+       if(!loading && circles.isEmpty)Card(child:Padding(
+         padding:const EdgeInsets.all(18),
+         child:const Text('No groups joined yet. Create one above or join '
+             'a trusted circle by invitation code.')))
+       else if(!loading)...circles.map(privateOrJoinedCard),
        gap(18),
        sectionHeader(context,'Start with a group idea',
          subtitle:'Templates only · groups exist when someone creates them'),
@@ -1524,25 +1777,19 @@ class _CirclesPageState extends State<CirclesPage> {
              'or try another topic or area.')))
        else ...publicGroups.map(publicCard),
        gap(23),
-       sectionHeader(context,'My groups',
-         subtitle:'Private invite circles and public groups you joined'),
-       gap(10),
-       if(!loading && circles.isEmpty)Card(child:Padding(
-         padding:const EdgeInsets.all(18),
-         child:const Text('No groups joined yet. Create one above or join '
-             'a trusted circle by invitation code.')))
-       else if(!loading)...circles.map(privateOrJoinedCard),
+
      ])));
 }
 
 class ProfilePage extends StatelessWidget {
  const ProfilePage({super.key,required this.profile,required this.onChanged,
-   required this.onTheme,required this.themeMode,required this.lookId,required this.onLook});
+   required this.onTheme,required this.themeMode,required this.lookId,
+   required this.onLook,required this.onMyReach});
  final Map<String,dynamic> profile;final VoidCallback onChanged;
  final ValueChanged<ThemeMode> onTheme;final ThemeMode themeMode;
  final String lookId;final ValueChanged<String> onLook;
  @override Widget build(BuildContext context)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(18,16,18,45),children:[
-   sectionHeader(context,'My profile',subtitle:'Your identity and privacy controls'),gap(12),
+   ReachExperienceHeader(title:'My space',subtitle:'Your activity, privacy and settings',icon:Icons.account_circle_outlined),gap(12),
    Card(child:Padding(padding:const EdgeInsets.all(20),child:Row(children:[
      const ReachMark(size:58),const SizedBox(width:14),Expanded(child:Column(
        crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -1554,6 +1801,11 @@ class ProfilePage extends StatelessWidget {
            style:Theme.of(context).textTheme.bodySmall)
        ]))]))),gap(14),
    Card(child:Column(children:[
+     ListTile(leading:const Icon(Icons.bolt_outlined),
+       title:const Text('My Reach and activity'),
+       subtitle:const Text('Manage your offers, requests and availability'),
+       trailing:const Icon(Icons.chevron_right),onTap:onMyReach),
+     const Divider(height:1),
      ListTile(leading:const Icon(Icons.edit_outlined),title:const Text('Edit profile and skills'),
        subtitle:const Text('Username, name, biography, specialties and city'),
        trailing:const Icon(Icons.chevron_right),
@@ -1630,7 +1882,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.1.0 · Expressive design systems',
+   ])),gap(18),Center(child:Text('Reach 1.2.0 · Communities, calls and adaptive design',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }

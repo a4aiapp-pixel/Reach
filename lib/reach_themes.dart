@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Reach design systems are structural, not just interchangeable color palettes.
 /// The same stable IDs preserve users' existing saved visual preferences.
 enum ReachNavigationLayout { standard, dock, underline, rail, tiles }
-enum ReachFeedLayout { floating, editorial, compact, accent, bento }
+enum ReachFeedLayout { floating, editorial, compact, accent, bento, glass, timeline, dashboard }
 enum ReachHeaderLayout { standard, spotlight, typographic, compact }
 enum ReachFilterLayout { inline, sheet }
 
@@ -177,7 +177,7 @@ const reachLooks=<ReachLook>[
     canvas:Color(0xFFEFF9FC),surface:Color(0xFFFFFFFF),
     darkCanvas:Color(0xFF0D1A25),darkSurface:Color(0xFF193441),
     radius:30,elevation:1,centered:true,gutter:22,
-    navigation:ReachNavigationLayout.standard,feed:ReachFeedLayout.floating,
+    navigation:ReachNavigationLayout.standard,feed:ReachFeedLayout.glass,
     header:ReachHeaderLayout.standard,filters:ReachFilterLayout.inline),
   ReachLook(id:'terra',name:'Terra Social',description:'Warm editorial · accent rails',
     seed:Color(0xFFB44B36),accent:Color(0xFFE9A45F),
@@ -199,7 +199,7 @@ const reachLooks=<ReachLook>[
     canvas:Color(0xFFF3F7EF),surface:Color(0xFFFEFFFB),
     darkCanvas:Color(0xFF101C15),darkSurface:Color(0xFF223126),
     radius:13,serif:true,gutter:23,
-    navigation:ReachNavigationLayout.underline,feed:ReachFeedLayout.compact,
+    navigation:ReachNavigationLayout.underline,feed:ReachFeedLayout.timeline,
     header:ReachHeaderLayout.typographic,filters:ReachFilterLayout.sheet),
   ReachLook(id:'sakura',name:'Sakura Bento',description:'Pastel bento · expressive motion',
     seed:Color(0xFFD34482),accent:Color(0xFF7F67DC),
@@ -213,7 +213,7 @@ const reachLooks=<ReachLook>[
     canvas:Color(0xFFF0F5FD),surface:Color(0xFFFFFFFF),
     darkCanvas:Color(0xFF0B1A35),darkSurface:Color(0xFF142A48),
     radius:4,compact:true,outlined:true,mono:true,gutter:14,
-    navigation:ReachNavigationLayout.rail,feed:ReachFeedLayout.editorial,
+    navigation:ReachNavigationLayout.rail,feed:ReachFeedLayout.dashboard,
     header:ReachHeaderLayout.compact,filters:ReachFilterLayout.inline),
   ReachLook(id:'solstice',name:'Solstice Pop',description:'Bold citrus · bento layout',
     seed:Color(0xFFE0781E),accent:Color(0xFFEC4770),
@@ -306,9 +306,9 @@ class _ReachThemeGalleryState extends State<ReachThemeGallery>{
               BorderRadius.circular(2):round,
             border:look.outlined?Border.all(color:accent.withValues(alpha:.7)):null),
           child:Row(children:[
-            if(look.feed==ReachFeedLayout.accent)
+            if(look.feed==ReachFeedLayout.accent || look.feed==ReachFeedLayout.timeline)
               Container(width:4,margin:const EdgeInsets.only(right:8),color:accent),
-            if(look.feed==ReachFeedLayout.bento)
+            if(look.feed==ReachFeedLayout.bento || look.feed==ReachFeedLayout.glass)
               Container(width:30,margin:const EdgeInsets.only(right:8),
                 decoration:BoxDecoration(color:look.accent.withValues(alpha:.35),
                   borderRadius:round),
@@ -316,7 +316,7 @@ class _ReachThemeGalleryState extends State<ReachThemeGallery>{
             Expanded(child:Column(
               mainAxisAlignment:MainAxisAlignment.center,
               crossAxisAlignment:CrossAxisAlignment.start,children:[
-              bar(look.feed==ReachFeedLayout.compact?54:72,height:7,color:foreground),
+              bar(look.feed==ReachFeedLayout.compact||look.feed==ReachFeedLayout.dashboard?54:72,height:7,color:foreground),
               const SizedBox(height:6),
               bar(91,height:4,color:foreground.withValues(alpha:.25)),
               const SizedBox(height:4),
@@ -334,7 +334,7 @@ class _ReachThemeGalleryState extends State<ReachThemeGallery>{
                   BorderRadius.circular(3):BorderRadius.circular(11),
                 border:look.navigation==ReachNavigationLayout.underline&&i==0?
                   Border.all(color:accent.withValues(alpha:.45),width:1):null),
-              child:Icon([Icons.explore,Icons.bolt,Icons.chat,Icons.groups,Icons.person][i],
+              child:Icon([Icons.explore,Icons.chat,Icons.call,Icons.groups,Icons.person][i],
                 size:9,color:i==0?Colors.white:foreground.withValues(alpha:.55))),
         ]),
       ]));
@@ -391,6 +391,11 @@ class _ReachThemeGalleryState extends State<ReachThemeGallery>{
                       if(selected)Icon(Icons.check_circle,
                         size:17,color:Theme.of(context).colorScheme.primary),
                     ]),
+                    Text('${look.navigation.name.toUpperCase()} · ${look.feed.name.toUpperCase()}',
+                      maxLines:1,overflow:TextOverflow.ellipsis,
+                      style:Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color:Theme.of(context).colorScheme.primary,
+                        fontWeight:FontWeight.w800)),
                     Text(look.description,maxLines:1,overflow:TextOverflow.ellipsis,
                       style:Theme.of(context).textTheme.labelSmall),
                   ]),

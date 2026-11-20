@@ -220,6 +220,49 @@ class ReachRepository {
   Future<void> deleteCircle(String id) async =>
       client.rpc('delete_circle', params: {'p_circle':id}).then((_) {});
 
+  // Group workspaces require membership, enforced in Supabase RLS/RPC.
+  Future<List<ReachPost>> groupPosts(String id) async {
+    final data=await client.rpc('reach_group_posts',params:{'p_circle':id});
+    return (data as List).map((r)=>ReachPost.fromJson(
+      Map<String,dynamic>.from(r as Map))).toList();
+  }
+  Future<List<Map<String,dynamic>>> groupMembers(String id) async {
+    final data=await client.rpc('reach_group_members',params:{'p_circle':id});
+    return (data as List).map((r)=>Map<String,dynamic>.from(r as Map)).toList();
+  }
+  Stream<List<Map<String,dynamic>>> groupMessages(String id)=>
+    client.from('reach_group_messages').stream(primaryKey:['id'])
+      .eq('circle_id',id).order('created_at',ascending:true).limit(120)
+      .map((rows)=>rows.map((r)=>Map<String,dynamic>.from(r)).toList());
+  Future<void> sendGroupMessage(String circle,String body) async {
+    await client.from('reach_group_messages').insert({
+      'circle_id':circle,'sender_id':uid,'body':body.trim(),
+    });
+  }
+  Future<List<Map<String,dynamic>>> groupResources(String id) async {
+    final rows=await client.from('reach_group_resources').select()
+      .eq('circle_id',id).order('created_at',ascending:false).limit(100);
+    return rows.map((r)=>Map<String,dynamic>.from(r)).toList();
+  }
+  Future<void> shareGroupResource(String circle,{
+    required String title,required String note,String? url}) async {
+    await client.from('reach_group_resources').insert({
+      'circle_id':circle,'creator_id':uid,'title':title.trim(),
+      'note':note.trim(),'kind':url==null?'note':'link','url':url?.trim(),
+    });
+  }
+  Future<void> removeGroupResource(String id) async =>
+    client.from('reach_group_resources').delete().eq('id',id).then((_) {});
+  Future<String> rotateGroupInvite(String id) async {
+    final value=await client.rpc('reach_rotate_group_invite',
+      params:{'p_circle':id});
+    return value as String;
+  }
+  Future<List<Map<String,dynamic>>> callHistory() async {
+    final data=await client.rpc('reach_my_call_history');
+    return (data as List).map((r)=>Map<String,dynamic>.from(r as Map)).toList();
+  }
+
   Future<List<Map<String,dynamic>>> alerts() async {
     final result = await client.from('alerts').select().eq('user_id',uid)
       .order('created_at', ascending:false).limit(50);

@@ -9,13 +9,13 @@ class ReachAdaptiveNavigation extends StatelessWidget {
   final int selectedIndex,unreadCount;
   final ValueChanged<int> onSelected;
 
-  static const labels=<String>['Discover','My Reach','Inbox','Groups','Me'];
+  static const labels=<String>['Explore','Chats','Calls','Groups','Me'];
   static const icons=<IconData>[
-    Icons.explore_outlined,Icons.bolt_outlined,Icons.chat_bubble_outline,
+    Icons.explore_outlined,Icons.chat_bubble_outline,Icons.call_outlined,
     Icons.groups_outlined,Icons.person_outline,
   ];
   static const activeIcons=<IconData>[
-    Icons.explore,Icons.bolt,Icons.chat_bubble,Icons.groups,Icons.person,
+    Icons.explore,Icons.chat_bubble,Icons.call,Icons.groups,Icons.person,
   ];
 
   static bool shouldUseRail(BuildContext context){
@@ -27,7 +27,7 @@ class ReachAdaptiveNavigation extends StatelessWidget {
 
   Widget _icon(int i,bool selected,{double size=23}){
     final icon=Icon(selected?activeIcons[i]:icons[i],size:size);
-    if(i!=2||unreadCount==0)return icon;
+    if(i!=1||unreadCount==0)return icon;
     return Badge(
       label:Text(unreadCount>49?'49+':'$unreadCount'),
       child:icon,
@@ -139,11 +139,11 @@ class ReachAdaptiveRail extends StatelessWidget {
       destinations:[
         for(var i=0;i<ReachAdaptiveNavigation.labels.length;i++)
           NavigationRailDestination(
-            icon:i==2&&unreadCount>0
+            icon:i==1&&unreadCount>0
               ?Badge(label:Text(unreadCount>49?'49+':'$unreadCount'),
                 child:Icon(ReachAdaptiveNavigation.icons[i]))
               :Icon(ReachAdaptiveNavigation.icons[i]),
-            selectedIcon:i==2&&unreadCount>0
+            selectedIcon:i==1&&unreadCount>0
               ?Badge(label:Text(unreadCount>49?'49+':'$unreadCount'),
                 child:Icon(ReachAdaptiveNavigation.activeIcons[i]))
               :Icon(ReachAdaptiveNavigation.activeIcons[i]),
