@@ -258,6 +258,11 @@ class ReachRepository {
       params:{'p_circle':id});
     return value as String;
   }
+  Future<List<Map<String,dynamic>>> callContacts() async {
+    final rows=await client.rpc('reach_my_call_contacts');
+    return (rows as List).map((row)=>Map<String,dynamic>.from(row as Map)).toList();
+  }
+
   Future<List<Map<String,dynamic>>> callHistory() async {
     final data=await client.rpc('reach_my_call_history');
     return (data as List).map((r)=>Map<String,dynamic>.from(r as Map)).toList();

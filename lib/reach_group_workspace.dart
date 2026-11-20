@@ -333,7 +333,7 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
                             'group_message',_s(m['id'])),
                           icon:const Icon(Icons.flag_outlined,size:16),
                           visualDensity:VisualDensity.compact)),
-                    ]))))));
+                    ])))));
             });
         })),
       SafeArea(top:false,child:Padding(
@@ -380,7 +380,7 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
             trailing:const Icon(Icons.chevron_right),
             onTap:()async{await widget.onOpenReach(item);await refresh();},
           )),
-      ])));
+      ]));
   }
 
   Widget resourceList(){
@@ -439,10 +439,10 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
               }
             }:null,
           )),
-      ])));
+      ]));
   }
 
-  Widget roster(){
+  @override Widget build(BuildContext context)=>DefaultTabController(
     if(loading)return const Center(child:CircularProgressIndicator());
     if(error!=null)return empty(Icons.error_outline,'Could not load members',error!);
     return RefreshIndicator(onRefresh:refresh,
@@ -459,7 +459,7 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
             trailing:item['user_id']==api.uid?
               const Chip(label:Text('You')):null,
           )),
-      ])));
+      ]));
   }
 
   @override Widget build(BuildContext context)=>DefaultTabController(

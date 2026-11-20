@@ -317,7 +317,6 @@ class ReachHome extends StatefulWidget {
     required this.lookId,required this.onLook});
   final ValueChanged<ThemeMode> onTheme;final ThemeMode themeMode;
   final String lookId;final ValueChanged<String> onLook;
- final VoidCallback onMyReach;
   @override State<ReachHome> createState()=>_ReachHomeState();
 }
 class _ReachHomeState extends State<ReachHome>{
@@ -1788,6 +1787,7 @@ class ProfilePage extends StatelessWidget {
  final Map<String,dynamic> profile;final VoidCallback onChanged;
  final ValueChanged<ThemeMode> onTheme;final ThemeMode themeMode;
  final String lookId;final ValueChanged<String> onLook;
+ final VoidCallback onMyReach;
  @override Widget build(BuildContext context)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(18,16,18,45),children:[
    ReachExperienceHeader(title:'My space',subtitle:'Your activity, privacy and settings',icon:Icons.account_circle_outlined),gap(12),
    Card(child:Padding(padding:const EdgeInsets.all(20),child:Row(children:[

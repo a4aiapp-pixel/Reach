@@ -29,18 +29,14 @@ class _ReachCallsHubState extends State<ReachCallsHub>{
     setState((){loading=true;error=null;});
     try{
       final rows=await Future.wait<dynamic>([
-        api.conversations(),api.callHistory(),
+        api.callContacts(),api.callHistory(),
       ]).timeout(const Duration(seconds:22));
       final conversationsFetched=(rows[0] as List).cast<Map<String,dynamic>>();
       final historyFetched=(rows[1] as List).cast<Map<String,dynamic>>();
       final allowed=<String,bool>{};
-      for(final conversation in conversationsFetched.take(50)){
-        final peer=(conversation['peer_id']??'').toString();
-        if(peer.isEmpty)continue;
-        try{
-          allowed[peer]=await api.canCall(peer)
-            .timeout(const Duration(seconds:10));
-        }catch(_){allowed[peer]=false;}
+      for(final c in conversationsFetched){
+        final peer=(c['peer_id']??'').toString();
+        if(peer.isNotEmpty)allowed[peer]=c['can_call']==true;
       }
       if(mounted)setState((){
         conversations=conversationsFetched;
