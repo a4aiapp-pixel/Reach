@@ -584,37 +584,57 @@ class _DiscoverPageState extends State<DiscoverPage>{
   return SafeArea(child:Column(children:[
   Padding(padding:EdgeInsets.fromLTRB(look.gutter,look.compact?8:12,look.gutter,0),
     child:Column(children:[
-      ReachDiscoverHero(
-        onPeople:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>
-          ReachPeoplePage(chatBuilder:(id,peer,name)=>
-            ChatPage(conversationId:id,peerId:peer,peerName:name,
-              topic:'Direct connection')))),
-        onAssist:()=>Navigator.push(context,
-          MaterialPageRoute(builder:(_)=>const ReachAssistPage())),
-        onRefresh:refresh),
-      ReachActionStrip(actions:[
-        ReachQuickAction('Offer',Icons.favorite_outline,()async{
-          final saved=await Navigator.push<bool>(context,MaterialPageRoute(
-            builder:(_)=>const ComposePage(initialType:'offer')));
-          if(saved==true)widget.onCreated();
-        }),
-        ReachQuickAction('Request',Icons.pan_tool_alt_outlined,()async{
-          final saved=await Navigator.push<bool>(context,MaterialPageRoute(
-            builder:(_)=>const ComposePage(initialType:'request')));
-          if(saved==true)widget.onCreated();
-        }),
-        ReachQuickAction('Find people',Icons.person_search_outlined,()=>
-          Navigator.push(context,MaterialPageRoute(
+      if(shortScreen)
+        Row(children:[
+          const ReachMark(size:31),
+          const SizedBox(width:10),
+          Expanded(child:Text('Reach · Explore',
+            maxLines:1,overflow:TextOverflow.ellipsis,
+            style:Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight:FontWeight.w900))),
+          IconButton(tooltip:'Find people',
+            onPressed:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>ReachPeoplePage(chatBuilder:(id,peer,name)=>
+                ChatPage(conversationId:id,peerId:peer,
+                  peerName:name,topic:'Direct connection')))),
+            icon:const Icon(Icons.people_alt_outlined)),
+          IconButton(tooltip:'Reach Assist',
+            onPressed:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>const ReachAssistPage())),
+            icon:const Icon(Icons.auto_awesome_outlined)),
+          IconButton(tooltip:'Refresh',onPressed:refresh,
+            icon:const Icon(Icons.refresh_rounded)),
+        ])
+      else ...[
+        ReachDiscoverHero(
+          onPeople:()=>Navigator.push(context,MaterialPageRoute(
             builder:(_)=>ReachPeoplePage(chatBuilder:(id,peer,name)=>
-              ChatPage(conversationId:id,peerId:peer,peerName:name,
-                topic:'Direct connection'))))),
-        if(!shortScreen)
+              ChatPage(conversationId:id,peerId:peer,
+                peerName:name,topic:'Direct connection')))),
+          onAssist:()=>Navigator.push(context,MaterialPageRoute(
+            builder:(_)=>const ReachAssistPage())),
+          onRefresh:refresh),
+        gap(look.compact?9:13),
+        ReachActionStrip(actions:[
+          ReachQuickAction('Offer',Icons.favorite_outline,()async{
+            final saved=await Navigator.push<bool>(context,MaterialPageRoute(
+              builder:(_)=>const ComposePage(initialType:'offer')));
+            if(saved==true)widget.onCreated();
+          }),
+          ReachQuickAction('Request',Icons.pan_tool_alt_outlined,()async{
+            final saved=await Navigator.push<bool>(context,MaterialPageRoute(
+              builder:(_)=>const ComposePage(initialType:'request')));
+            if(saved==true)widget.onCreated();
+          }),
           ReachQuickAction('Groups',Icons.groups_2_outlined,()=>
             Navigator.push(context,MaterialPageRoute(
               builder:(_)=>const CirclesPage()))),
-      ]),
-      gap(look.compact?9:12),
-      gap(look.compact?9:15),
+          ReachQuickAction('My activity',Icons.bolt_outlined,()=>
+            Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>MinePage(onCreated:widget.onCreated)))),
+        ]),
+      ],
+      gap(look.compact?8:12),
     TextField(controller:search,onChanged:(_){debounce?.cancel();debounce=Timer(const Duration(milliseconds:400),refresh);},
       decoration:const InputDecoration(hintText:'Search help, skills or opportunities',prefixIcon:Icon(Icons.search_rounded))),gap(13),
     SingleChildScrollView(scrollDirection:Axis.horizontal,child:Row(children:[
