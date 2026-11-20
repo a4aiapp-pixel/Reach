@@ -226,6 +226,28 @@ class ReachRepository {
     return (data as List).map((r)=>ReachPost.fromJson(
       Map<String,dynamic>.from(r as Map))).toList();
   }
+  Future<List<Map<String,dynamic>>> groupCandidates(String circle,String query)async{
+    final data=await client.rpc('reach_group_candidates',
+      params:{'p_circle':circle,'p_query':query.trim()});
+    return (data as List).map((m)=>Map<String,dynamic>.from(m as Map)).toList();
+  }
+  Future<String> addGroupMember(String circle,String identity,
+      {bool inviteOnly=false})async{
+    final result=await client.rpc('reach_add_group_member',params:{
+      'p_circle':circle,'p_identity':identity.trim(),
+      'p_invite_only':inviteOnly,
+    });
+    return result as String;
+  }
+  Future<List<Map<String,dynamic>>> groupInvitations()async{
+    final data=await client.rpc('reach_group_inbox');
+    return (data as List).map((m)=>Map<String,dynamic>.from(m as Map)).toList();
+  }
+  Future<void> answerGroupInvitation(String invitation,bool accept)async{
+    await client.rpc('reach_answer_group_invitation',
+      params:{'p_invitation':invitation,'p_accept':accept});
+  }
+
   Future<List<Map<String,dynamic>>> groupMembers(String id) async {
     final data=await client.rpc('reach_group_members_v2',params:{'p_circle':id});
     return (data as List).map((r)=>Map<String,dynamic>.from(r as Map)).toList();
