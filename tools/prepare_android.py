@@ -187,5 +187,36 @@ with Image.open(brand_source) as original:
     brand.resize((512, 512), Image.Resampling.LANCZOS).save(
         play_icon, 'PNG', optimize=True
     )
+# A minimal Android-specific bridge distinguishes international roaming from
+# normal cellular data. Unknown status fails closed in Dart (no auto-download).
+activity_kotlin = android/'app/src/main/kotlin/app/reachnetwork/reach_network/MainActivity.kt'
+activity_kotlin.parent.mkdir(parents=True, exist_ok=True)
+activity_kotlin.write_text("""package app.reachnetwork.reach_network
+
+import android.content.Context
+import android.telephony.TelephonyManager
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity : FlutterActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "reach/network")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "isRoaming") {
+                    try {
+                        val manager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                        result.success(manager.isNetworkRoaming)
+                    } catch (exception: Exception) {
+                        result.error("UNKNOWN_ROAMING", "Could not check network roaming", null)
+                    }
+                } else {
+                    result.notImplemented()
+                }
+            }
+    }
+}
+""", encoding='utf-8')
 print('Reach Android configured: API 36, selected 3-person location-pin icon,'
       ' deep links, opt-in location, push='+str(os.environ.get('REACH_ENABLE_PUSH')=='1'))

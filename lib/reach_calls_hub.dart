@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'reach_calling.dart';
 import 'reach_experience.dart';
 import 'repository.dart';
+import 'reach_avatar.dart';
 
 /// Direct access to calling without first navigating through Chat → Inbox.
 /// Only accepted mutual-consent conversations can place a voice/video call.
@@ -83,7 +84,8 @@ class _ReachCallsHubState extends State<ReachCallsHub>{
           Card(child:Padding(padding:const EdgeInsets.all(9),
             child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             ListTile(
-              leading:const CircleAvatar(child:Icon(Icons.person_outline)),
+              leading:ReachMemberAvatar(memberId:'${c['peer_id']}',
+                name:'${c['peer_name']??'Reach member'}',size:43),
               title:Text((c['peer_name']??'Reach member').toString()),
               subtitle:Text(permission[(c['peer_id']??'').toString()]==true
                 ?'Available for mutual-consent calling'

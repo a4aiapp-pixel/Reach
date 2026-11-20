@@ -1,20 +1,29 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:path_provider/path_provider.dart';
+import 'reach_media_prefs.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// A deliberately small, strictly private attachment transport for an
-/// already-approved 1:1 chat. No public URLs, arbitrary executable files,
-/// external storage permissions, or unbounded uploads.
-/// Media sharing stays off until a real safety scanner/review pipeline exists.
+/// Private, consent-gated 1:1 attachments with rate and byte quotas. All
+/// public group media remains disabled. This is not a media-content scanner.
 class ReachAttachments {
   ReachAttachments(this.client);
   final SupabaseClient client;
   static const bucket = 'reach-chat';
-  static const maxBytes = 6 * 1024 * 1024;
+  static const maxBytes = 24 * 1024 * 1024;
+  static int categoryLimit(String mime){
+    if(mime.startsWith('image/'))return 8*1024*1024;
+    if(mime.startsWith('audio/'))return 12*1024*1024;
+    if(mime.startsWith('video/'))return 24*1024*1024;
+    return 16*1024*1024;
+  }
   static const extensions = <String>[
-    'pdf','txt','csv','doc','docx','xls','xlsx','ppt','pptx'
+    'pdf','txt','csv','doc','docx','xls','xlsx','ppt','pptx',
+    'jpg','jpeg','png','webp','gif',
+    'mp3','m4a','aac','ogg','wav',
+    'mp4','mov','webm'
   ];
 
   static String mimeFor(String filename) {
@@ -79,8 +88,9 @@ class ReachAttachments {
     for(final picked in files) {
       final filename=cleanFilename(picked.name);
       final size=picked.lengthSync() ?? await picked.length();
-      if(size==null||size<1||size>maxBytes){
-        throw StateError('Each attachment must be between 1 byte and 6 MB.');
+      if(size==null||size<1||size>categoryLimit(mimeFor(filename))){
+        throw StateError('This file exceeds its sharing limit. '
+          'Photos 8 MB, audio 12 MB, videos 24 MB, documents 16 MB.');
       }
       final path=picked.path;
       if(path==null||path.isEmpty) {
@@ -117,13 +127,46 @@ class ReachAttachments {
     return completed;
   }
 
+  Future<File> cachedFile(Map<String,dynamic> attachment) async{
+    final id=attachment['id']?.toString()??'';
+    if(!RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id)){
+      throw StateError('Invalid attachment identifier.');
+    }
+    final filename=cleanFilename('${attachment['file_name']}');
+    final suffix=filename.split('.').last;
+    final base=await getTemporaryDirectory();
+    final directory=Directory('${base.path}/reach_media');
+    if(!await directory.exists())await directory.create(recursive:true);
+    final file=File('${directory.path}/$id.$suffix');
+    if(await file.exists()){
+      final bytes=await file.length();
+      if(bytes>0 && bytes<=maxBytes)return file;
+      await file.delete();
+    }
+    final bytes=await client.storage.from(bucket)
+      .download(attachment['object_path'] as String);
+    if(bytes.length>categoryLimit(mimeFor(filename))){
+      throw StateError('Attachment exceeds the allowed download size.');
+    }
+    await file.writeAsBytes(bytes,flush:true);
+    return file;
+  }
+
+  Future<File?> autoDownload(Map<String,dynamic> attachment)async{
+    final sender=client.auth.currentUser?.id;
+    if(sender==null||attachment['sender_id']==sender)return null;
+    final mime='${attachment['mime_type']??''}';
+    final size=(attachment['byte_size'] as num?)?.toInt()??0;
+    final prefs=await ReachMediaPreferences.load();
+    if(!await prefs.shouldAutoDownload(mime,bytes:size))return null;
+    return cachedFile(attachment);
+  }
+
   Future<void> shareFile(Map<String,dynamic> attachment) async {
-    final path=attachment['object_path'] as String;
     final filename=cleanFilename(attachment['file_name'] as String);
-    final bytes=await client.storage.from(bucket).download(path);
-    if(bytes.length>maxBytes)throw StateError('Attachment exceeds allowed size.');
+    final file=await cachedFile(attachment);
     await SharePlus.instance.share(ShareParams(
-      files:[XFile.fromData(bytes,mimeType:mimeFor(filename))],
+      files:[XFile(file.path,mimeType:mimeFor(filename))],
       fileNameOverrides:[filename],
       subject:filename,
     ));

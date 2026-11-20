@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Reach design systems are structural, not just interchangeable color palettes.
 /// The same stable IDs preserve users' existing saved visual preferences.
@@ -349,7 +350,7 @@ class _ReachThemeGalleryState extends State<ReachThemeGallery>{
             style:Theme.of(context).textTheme.titleLarge),
           const SizedBox(height:5),
           Text('10 layouts · different navigation, cards, headers and density. '
-            'Tap a preview to apply it instantly.',
+            'Tap a style to try it instantly.',
             style:Theme.of(context).textTheme.bodySmall),
         ])),
       Expanded(child:GridView.builder(
@@ -366,6 +367,7 @@ class _ReachThemeGalleryState extends State<ReachThemeGallery>{
             child:Material(color:Colors.transparent,
               child:InkWell(
                 onTap:(){
+                  HapticFeedback.selectionClick();
                   setState(()=>current=look.id);
                   widget.onSelected(look.id);
                 },
@@ -403,9 +405,6 @@ class _ReachThemeGalleryState extends State<ReachThemeGallery>{
               )));
         },
       )),
-      Padding(padding:const EdgeInsets.fromLTRB(16,4,16,12),
-        child:Text('Previews illustrate style only, not actual community activity.',
-          style:Theme.of(context).textTheme.labelSmall,
-          textAlign:TextAlign.center)),
+      const SizedBox(height:6),
     ])));
 }

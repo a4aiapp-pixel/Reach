@@ -197,6 +197,32 @@ class _ReachPrivacyPreferencesState extends State<ReachPrivacyPreferences> {
       onChanged:savingKey==null?(v)=>unawaited(_nearby(v)):null,
     ),
     const Divider(height:1),
+    ExpansionTile(
+      leading:const Icon(Icons.groups_2_outlined),
+      title:const Text('Group & media permissions'),
+      children:[
+        SwitchListTile.adaptive(
+          secondary:_icon('allow_group_invites',Icons.mail_outline),
+          title:const Text('Allow group invitations'),
+          value:values['allow_group_invites']!=false,
+          onChanged:savingKey==null?(v)=>unawaited(
+            _update('allow_group_invites',v)):null),
+        SwitchListTile.adaptive(
+          secondary:_icon('allow_group_direct_add',Icons.person_add_alt_1),
+          title:const Text('Allow direct group adding'),
+          subtitle:const Text('A group owner can add you without approval.'),
+          value:values['allow_group_direct_add']==true,
+          onChanged:savingKey==null?(v)=>unawaited(
+            _update('allow_group_direct_add',v)):null),
+        SwitchListTile.adaptive(
+          secondary:_icon('allow_media_messages',Icons.perm_media_outlined),
+          title:const Text('Allow private photos, audio & video'),
+          subtitle:const Text('Both people must allow media sharing.'),
+          value:values['allow_media_messages']==true,
+          onChanged:savingKey==null?(v)=>unawaited(
+            _update('allow_media_messages',v)):null),
+      ]),
+    const Divider(height:1),
     SwitchListTile(
       secondary:_icon('notify_on',Icons.notifications_none),
       title:const Text('In-app activity alerts'),

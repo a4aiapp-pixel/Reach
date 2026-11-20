@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'reach_themes.dart';
 
 /// Reach's navigation is deliberately part of the chosen design system.
@@ -38,7 +39,9 @@ class ReachAdaptiveNavigation extends StatelessWidget {
     final look=ReachDesign.of(context);
     if(look.navigation==ReachNavigationLayout.standard){
       return NavigationBar(
-        selectedIndex:selectedIndex,onDestinationSelected:onSelected,
+        selectedIndex:selectedIndex,onDestinationSelected:(i){
+          HapticFeedback.selectionClick();onSelected(i);
+        },
         destinations:[
           for(var i=0;i<labels.length;i++)
             NavigationDestination(
@@ -73,7 +76,7 @@ class ReachAdaptiveNavigation extends StatelessWidget {
           for(var i=0;i<labels.length;i++)
             Expanded(child:Semantics(button:true,selected:i==selectedIndex,
               label:labels[i],child:InkWell(
-                onTap:()=>onSelected(i),
+                onTap:(){HapticFeedback.selectionClick();onSelected(i);},
                 child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
                   if(underline)
                     AnimatedContainer(duration:const Duration(milliseconds:170),

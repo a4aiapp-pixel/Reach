@@ -25,7 +25,11 @@ void main(){
       expect(()=>ReachAttachments.cleanFilename('.exe'),throwsArgumentError);
     });
     test('Server and client agree on the per-file upload size ceiling',(){
-      expect(ReachAttachments.maxBytes,6291456);
+      expect(ReachAttachments.maxBytes,25165824);
+      expect(ReachAttachments.categoryLimit('image/jpeg'),8388608);
+      expect(ReachAttachments.categoryLimit('audio/mpeg'),12582912);
+      expect(ReachAttachments.categoryLimit('video/mp4'),25165824);
+      expect(ReachAttachments.categoryLimit('application/pdf'),16777216);
     });
   });
 }

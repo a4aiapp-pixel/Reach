@@ -10,6 +10,8 @@ import 'models.dart';
 import 'repository.dart';
 import 'reach_experience.dart';
 import 'reach_themes.dart';
+import 'reach_avatar.dart';
+import 'reach_group_add.dart';
 
 /// A real, private-by-membership workspace for every group. Invite codes,
 /// realtime discussion, group-only reaches, resource links/notes and roster
@@ -287,7 +289,7 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
             icon:const Icon(Icons.share_outlined),label:const Text('Invite')),
         ]),
         const SizedBox(height:3),
-        Text('Invite any trusted Reach member to join via Groups → Join by code.',
+        Text('Use this code to join via Groups → Join by code.',
           style:Theme.of(context).textTheme.bodySmall),
       ])));
   }
@@ -442,22 +444,40 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
       ]));
   }
 
+  Future<void> openMemberManager() async{
+    await Navigator.push(context,MaterialPageRoute(
+      builder:(_)=>ReachGroupAddMemberPage(
+        circleId:groupId,groupName:name)));
+    if(mounted)await refresh();
+  }
+
   Widget roster(){
     if(loading)return const Center(child:CircularProgressIndicator());
     if(error!=null)return empty(Icons.error_outline,'Could not load members',error!);
     return RefreshIndicator(onRefresh:refresh,
       child:ListView(padding:const EdgeInsets.all(15),children:[
-        Text('${members.length} group member${members.length==1?'':'s'}',
-          style:Theme.of(context).textTheme.titleMedium),
+        Row(children:[
+          Expanded(child:Text('${members.length} members',
+            style:Theme.of(context).textTheme.titleMedium)),
+          if(group['owner_id']==api.uid)
+            FilledButton.icon(
+              onPressed:openMemberManager,
+              icon:const Icon(Icons.person_add_alt_1_rounded),
+              label:const Text('Add member')),
+        ]),
         const SizedBox(height:9),
         for(final item in members)
           Card(child:ListTile(
-            leading:CircleAvatar(child:Text(_s(item['display_name']).isEmpty?
-              '?':_s(item['display_name']).characters.first.toUpperCase())),
+            leading:ReachAvatar(name:_s(item['display_name']),
+              path:item['avatar_path'] as String?,
+              color:_s(item['avatar_color']),size:44),
             title:Text(_s(item['display_name'])),
             subtitle:Text(_s(item['role'])),
             trailing:item['user_id']==api.uid?
-              const Chip(label:Text('You')):null,
+              const Chip(label:Text('You')):const Icon(Icons.chevron_right),
+            onTap:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>ReachMemberProfilePage(
+                memberId:_s(item['user_id'])))),
           )),
       ]));
   }
@@ -466,8 +486,12 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
     length:4,child:Scaffold(
       appBar:AppBar(title:Text(name,maxLines:1,overflow:TextOverflow.ellipsis),
         actions:[
-          IconButton(tooltip:'Share group invitation',
-            onPressed:shareInvite,icon:const Icon(Icons.person_add_alt_outlined)),
+          if(group['owner_id']==api.uid)
+            IconButton(tooltip:'Add member by ID or search',
+              onPressed:openMemberManager,
+              icon:const Icon(Icons.person_add_alt_1_outlined)),
+          IconButton(tooltip:'Share group code',
+            onPressed:shareInvite,icon:const Icon(Icons.share_outlined)),
           IconButton(tooltip:'Refresh group',onPressed:refresh,
             icon:const Icon(Icons.refresh_rounded)),
         ]),
@@ -484,7 +508,7 @@ class _ReachGroupWorkspaceState extends State<ReachGroupWorkspace> {
             const SizedBox(height:5),
             Card(child:ExpansionTile(
               leading:const Icon(Icons.person_add_alt_1_outlined),
-              title:const Text('Invite members'),
+              title:const Text('Share invitation code'),
               subtitle:Text(code.isEmpty?'Open for invitation options':code,
                 maxLines:1,overflow:TextOverflow.ellipsis),
               children:[Padding(

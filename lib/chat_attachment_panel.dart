@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_attachments.dart';
+import 'reach_media_prefs.dart';
 
 /// Lightweight, private chat attachment panel that does not request any
 /// broad storage permission. The Android system picker grants per-file access.
@@ -96,13 +99,17 @@ class _ChatAttachmentsPanelState extends State<ChatAttachmentsPanel> {
       border:Border(top:BorderSide(color:Theme.of(context).colorScheme.outlineVariant))),
     child:Column(mainAxisSize:MainAxisSize.min,children:[
       Row(children:[
-        const Icon(Icons.folder_shared_outlined,size:18),
+        const Icon(Icons.attach_file_rounded,size:18),
         const SizedBox(width:8),
-        Expanded(child:Text('Private chat documents',
+        Expanded(child:Text('Shared media & files',
           style:Theme.of(context).textTheme.labelLarge)),
-        Text('6 MB/file',style:Theme.of(context).textTheme.labelSmall),
+        Text('Up to 24 MB',style:Theme.of(context).textTheme.labelSmall),
+        IconButton(tooltip:'Auto-download settings',
+          onPressed:()=>Navigator.push(context,MaterialPageRoute(
+            builder:(_)=>const ReachMediaSettingsPage())),
+          icon:const Icon(Icons.tune_outlined)),
         IconButton(
-          tooltip:'Share documents (photos/video blocked pending safety screening)',
+          tooltip:'Share photo, video, audio or document',
           onPressed:uploading?null:attach,
           icon:uploading?
             const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)):
@@ -119,59 +126,103 @@ class _ChatAttachmentsPanelState extends State<ChatAttachmentsPanel> {
         builder:(context,snapshot){
           final items=snapshot.data ?? [];
           if(items.isEmpty)return const SizedBox.shrink();
-          return SizedBox(height:67,child:ListView.separated(
+          return SizedBox(height:96,child:ListView.separated(
             scrollDirection:Axis.horizontal,
             itemCount:items.length,
             separatorBuilder:(_,_)=>const SizedBox(width:7),
             itemBuilder:(ctx,index){
-              final file=items[index];
-              final name=file['file_name'] as String? ?? 'Attachment';
-              final own=file['sender_id']==Supabase.instance.client.auth.currentUser?.id;
-              final size=file['byte_size'] as num? ?? 0;
-              return Material(
-                color:Theme.of(context).colorScheme.surfaceContainerHigh,
-                borderRadius:BorderRadius.circular(12),
-                child:InkWell(
-                  borderRadius:BorderRadius.circular(12),
-                  onTap:()=>openFile(file),
-                  onLongPress:own?()=>removeFile(file):null,
-                  child:ConstrainedBox(
-                    constraints:const BoxConstraints(maxWidth:195),
-                    child:Padding(
-                      padding:const EdgeInsets.symmetric(horizontal:10,vertical:7),
-                      child:Row(mainAxisSize:MainAxisSize.min,children:[
-                        const Icon(Icons.insert_drive_file_outlined,size:21),
-                        const SizedBox(width:7),
-                        Flexible(child:Column(
-                          crossAxisAlignment:CrossAxisAlignment.start,
-                          mainAxisAlignment:MainAxisAlignment.center,
-                          children:[
-                            Text(name,maxLines:1,overflow:TextOverflow.ellipsis,
-                              style:Theme.of(context).textTheme.labelMedium),
-                            Text('${(size/1024).toStringAsFixed(0)} KB · ${own?'Sent':'Received'}',
-                              maxLines:1,style:Theme.of(context).textTheme.labelSmall)
-                          ],
-                        )),
-                        PopupMenuButton<String>(
-                          tooltip:'Attachment actions',
-                          icon:const Icon(Icons.more_vert,size:17),
-                          onSelected:(v){
-                            if(v=='delete')removeFile(file);
-                            if(v=='report')reportFile(file);
-                          },
-                          itemBuilder:(_)=>[
-                            if(own)const PopupMenuItem(value:'delete',child:Text('Delete file')),
-                            if(!own)const PopupMenuItem(value:'report',child:Text('Report unsafe file')),
-                          ]),
-                      ]),
-                    ),
-                  ),
-                ),
-              );
+              final attachment=items[index];
+              return ReachAttachmentPreview(
+                key:ValueKey('${attachment['id']}'),
+                file:attachment,service:service,
+                onTap:()=>openFile(attachment),
+                onDelete:()=>removeFile(attachment),
+                onReport:()=>reportFile(attachment));
             },
           ));
         },
       ),
     ]),
   );
+}
+
+class ReachAttachmentPreview extends StatefulWidget{
+  const ReachAttachmentPreview({super.key,required this.file,
+    required this.service,required this.onTap,
+    required this.onDelete,required this.onReport});
+  final Map<String,dynamic> file;
+  final ReachAttachments service;
+  final VoidCallback onTap,onDelete,onReport;
+  @override State<ReachAttachmentPreview> createState()=>
+    _ReachAttachmentPreviewState();
+}
+class _ReachAttachmentPreviewState extends State<ReachAttachmentPreview>{
+  File? cached;
+  @override void initState(){
+    super.initState();
+    widget.service.autoDownload(widget.file).then((f){
+      if(mounted)setState(()=>cached=f);
+    }).catchError((Object error){
+      debugPrint('Reach auto-download skipped: $error');
+    });
+  }
+  @override Widget build(BuildContext context){
+    final f=widget.file;
+    final own=f['sender_id']==Supabase.instance.client.auth.currentUser?.id;
+    final mime='${f['mime_type']??''}',size=(f['byte_size'] as num? ?? 0);
+    final photo=mime.startsWith('image/');
+    final video=mime.startsWith('video/');
+    final audio=mime.startsWith('audio/');
+    final icon=photo?Icons.image_outlined:video?Icons.videocam_outlined:
+      audio?Icons.audiotrack_outlined:Icons.insert_drive_file_outlined;
+    return Material(
+      color:Theme.of(context).colorScheme.surfaceContainerHigh,
+      borderRadius:BorderRadius.circular(14),clipBehavior:Clip.antiAlias,
+      child:InkWell(onTap:widget.onTap,
+        onLongPress:own?widget.onDelete:null,
+        child:SizedBox(width:200,height:90,
+          child:Row(children:[
+            SizedBox(width:64,height:90,
+              child:photo&&cached!=null
+                ?Image.file(cached!,fit:BoxFit.cover,
+                   errorBuilder:(_,__,___)=>Icon(icon,size:27))
+                :Container(
+                  color:Theme.of(context).colorScheme.primaryContainer,
+                  child:Icon(icon,size:27,
+                    color:Theme.of(context).colorScheme.primary))),
+            Expanded(child:Padding(padding:const EdgeInsets.fromLTRB(8,6,1,4),
+              child:Column(
+                crossAxisAlignment:CrossAxisAlignment.start,
+                mainAxisAlignment:MainAxisAlignment.center,children:[
+                Text('${f['file_name']??'Attachment'}',
+                  maxLines:2,overflow:TextOverflow.ellipsis,
+                  style:Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height:4),
+                Row(children:[
+                  Icon(cached!=null?Icons.check_circle_outline:
+                    Icons.download_outlined,size:13),
+                  const SizedBox(width:4),
+                  Expanded(child:Text(
+                    '${(size/1048576).toStringAsFixed(1)} MB',
+                    style:Theme.of(context).textTheme.labelSmall,
+                    maxLines:1,overflow:TextOverflow.ellipsis)),
+                ]),
+              ]))),
+            PopupMenuButton<String>(
+              tooltip:'File options',
+              icon:const Icon(Icons.more_vert,size:16),
+              onSelected:(value){
+                if(value=='delete')widget.onDelete();
+                if(value=='report')widget.onReport();
+              },
+              itemBuilder:(_)=>[
+                if(own)const PopupMenuItem(value:'delete',
+                  child:Text('Delete')),
+                if(!own)const PopupMenuItem(value:'report',
+                  child:Text('Report')),
+              ]),
+          ])),
+      ),
+    );
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'reach_themes.dart';
 
 /// A reusable page masthead. Ten design languages alter actual composition,
@@ -87,7 +88,16 @@ class ReachExperienceHeader extends StatelessWidget {
           const SizedBox(width:7),
           Container(width:24,height:2,color:look.accent),
         ])),
-      panel,
+      TweenAnimationBuilder<double>(
+        tween:Tween(begin:0,end:1),
+        duration:MediaQuery.maybeOf(context)?.disableAnimations==true
+          ?Duration.zero:const Duration(milliseconds:300),
+        curve:Curves.easeOutCubic,
+        child:panel,
+        builder:(context,value,child)=>Opacity(
+          opacity:value,
+          child:Transform.translate(
+            offset:Offset(0,7*(1-value)),child:child))),
       if(isInk||isFlat)Container(
         margin:const EdgeInsets.only(top:9),height:isInk?2:1,
         color:isInk?scheme.onSurface:scheme.outlineVariant),
@@ -116,7 +126,9 @@ class ReachActionStrip extends StatelessWidget {
               look.navigation==ReachNavigationLayout.underline?4:look.radius),
             side:BorderSide(color:scheme.outlineVariant.withValues(alpha:.43))),
           clipBehavior:Clip.antiAlias,
-          child:InkWell(onTap:a.onTap,
+          child:InkWell(onTap:(){
+            HapticFeedback.selectionClick();a.onTap();
+          },
             child:Padding(padding:EdgeInsets.symmetric(
               horizontal:look.compact?12:16,vertical:9),
               child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[

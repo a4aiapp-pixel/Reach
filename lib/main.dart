@@ -14,6 +14,9 @@ import 'reach_auth_providers.dart';
 import 'reach_themes.dart';
 import 'reach_navigation.dart';
 import 'reach_group_workspace.dart';
+import 'reach_group_add.dart';
+import 'reach_avatar.dart';
+import 'reach_media_prefs.dart';
 import 'reach_experience.dart';
 import 'reach_calls_hub.dart';
 import 'reach_discover_design.dart';
@@ -1384,8 +1387,15 @@ class _ChatPageState extends State<ChatPage>{
   if(mounted){if(sent==true)text.clear();setState(()=>sending=false);}
  }
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(
-   title:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(widget.peerName),
-     Text(widget.topic,style:Theme.of(context).textTheme.bodySmall,maxLines:1,overflow:TextOverflow.ellipsis)]),
+   title:Row(children:[
+     ReachMemberAvatar(memberId:widget.peerId,name:widget.peerName,size:37),
+     const SizedBox(width:9),
+     Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+       Text(widget.peerName,maxLines:1,overflow:TextOverflow.ellipsis),
+       Text(widget.topic,style:Theme.of(context).textTheme.bodySmall,
+         maxLines:1,overflow:TextOverflow.ellipsis),
+     ])),
+   ]),
    actions:[
      if(AppConfig.callingEnabled)IconButton(
        tooltip:'Recheck calling consent',
@@ -1498,9 +1508,7 @@ class _CirclesPageState extends State<CirclesPage> {
        title:Text(template==null?'Create a group':'Start ${template.name}'),
        content:SizedBox(width:430,child:Form(key:form,child:SingleChildScrollView(
          child:Column(mainAxisSize:MainAxisSize.min,children:[
-           const Text('Choose a topic and who can discover this group. '
-             'These are new real member-run groups, not automatic fake communities.'),
-           gap(15),
+           gap(7),
            TextFormField(controller:name,maxLength:70,
              textCapitalization:TextCapitalization.words,
              decoration:const InputDecoration(labelText:'Group name'),
@@ -1679,10 +1687,19 @@ class _CirclesPageState extends State<CirclesPage> {
                if(v=='share')await SharePlus.instance.share(ShareParams(
                  text:'Join my Reach group "$name". Code: ${c['invite_code']}. '
                    'Open Reach → Groups → Join by code.'));
+               if(v=='add'){
+                 await Navigator.push(context,MaterialPageRoute(builder:(_)=>
+                   ReachGroupAddMemberPage(
+                     circleId:str(c['id']),groupName:name)));
+                 if(mounted)await refresh();
+               }
                if(v=='leave')await leaveOrDelete(c);
              },
              itemBuilder:(_)=>[
-               const PopupMenuItem(value:'share',child:Text('Invite members')),
+               if(owner)const PopupMenuItem(value:'add',
+                 child:Text('Add members')),
+               const PopupMenuItem(value:'share',
+                 child:Text('Share invitation code')),
                PopupMenuItem(value:'leave',
                  child:Text(owner?'Delete group':'Leave group')),
              ]),
@@ -1719,7 +1736,8 @@ class _CirclesPageState extends State<CirclesPage> {
          Expanded(child:OutlinedButton.icon(onPressed:joinInvite,
             icon:const Icon(Icons.key_outlined),label:const Text('Join by code')))
        ]),
-       gap(18),
+       gap(12),
+       ReachGroupInvitations(onJoined:()=>unawaited(refresh())),
        sectionHeader(context,'Your groups',
          subtitle:'Open discussions, group resources and members'),
        gap(10),
@@ -1761,8 +1779,7 @@ class _CirclesPageState extends State<CirclesPage> {
            );
          })),
        gap(21),
-       sectionHeader(context,'Explore public groups',
-         subtitle:'Join real member-run groups; their posts stay members-only'),
+       sectionHeader(context,'Explore public groups'),
        gap(8),
        TextField(controller:search,
          onChanged:(_){
@@ -1811,13 +1828,16 @@ class ProfilePage extends StatelessWidget {
  @override Widget build(BuildContext context)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(18,16,18,45),children:[
    ReachExperienceHeader(title:'My space',subtitle:'Your activity, privacy and settings',icon:Icons.account_circle_outlined),gap(12),
    Card(child:Padding(padding:const EdgeInsets.all(20),child:Row(children:[
-     const ReachMark(size:58),const SizedBox(width:14),Expanded(child:Column(
+     ReachAvatar(name:str(profile['display_name']),
+        path:profile['avatar_path'] as String?,
+        color:str(profile['avatar_color']),size:62),
+      const SizedBox(width:14),Expanded(child:Column(
        crossAxisAlignment:CrossAxisAlignment.start,children:[
          Text(str(profile['display_name']).isEmpty?'Reach member':str(profile['display_name']),
            style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.bold)),
          if(str(profile['username']).isNotEmpty) Text('@${profile['username']}'),
          Text('${profile['city']}, ${profile['country']}'),
-         Text('Self-declared skills · no identity verification',
+         Text('Your space · your privacy',
            style:Theme.of(context).textTheme.bodySmall)
        ]))]))),gap(14),
    Card(child:Column(children:[
@@ -1825,6 +1845,12 @@ class ProfilePage extends StatelessWidget {
        title:const Text('My Reach and activity'),
        subtitle:const Text('Manage your offers, requests and availability'),
        trailing:const Icon(Icons.chevron_right),onTap:onMyReach),
+     const Divider(height:1),
+     ListTile(leading:const Icon(Icons.account_circle_outlined),
+       title:const Text('View profile'),trailing:const Icon(Icons.chevron_right),
+       onTap:()=>Navigator.push(context,MaterialPageRoute(
+         builder:(_)=>ReachMemberProfilePage(
+           memberId:str(profile['id']))))),
      const Divider(height:1),
      ListTile(leading:const Icon(Icons.edit_outlined),title:const Text('Edit profile and skills'),
        subtitle:const Text('Username, name, biography, specialties and city'),
@@ -1840,6 +1866,12 @@ class ProfilePage extends StatelessWidget {
      onChanged:onChanged,
      callingEnabled:AppConfig.callingEnabled,
      pushEnabled:ReachPush.enabled),gap(14),
+   Card(child:ListTile(
+     leading:const Icon(Icons.perm_media_outlined),
+     title:const Text('Storage & media downloads'),
+     trailing:const Icon(Icons.chevron_right),
+     onTap:()=>Navigator.push(context,MaterialPageRoute(
+       builder:(_)=>const ReachMediaSettingsPage())))),gap(12),
    Card(child:Column(children:[
      ListTile(leading:const Icon(Icons.palette_outlined),title:const Text('Appearance'),
        subtitle:Text('Current: ${themeMode.name}'),trailing:DropdownButton<ThemeMode>(
@@ -1902,7 +1934,7 @@ class ProfilePage extends StatelessWidget {
        title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
        subtitle:const Text('Permanently erase your account, posts and chats'),
        onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.2.0 · Communities, calls and adaptive design',
+   ])),gap(18),Center(child:Text('Reach 1.3.0 · Connect & create',
       style:Theme.of(context).textTheme.labelSmall)),
  ]));
 }
@@ -1932,7 +1964,12 @@ class _EditProfilePageState extends State<EditProfilePage>{
   @override Widget build(BuildContext context)=>Scaffold(
     appBar:AppBar(title:const Text('Edit profile')),
     body:SafeArea(child:ListView(padding:const EdgeInsets.all(20),children:[
-      const Text('Only add credentials you genuinely hold. Reach does not independently verify skills.'),
+      ReachAvatarEditor(
+        name:name.text.isEmpty?'Reach member':name.text,
+        initialPath:widget.initial['avatar_path'] as String?,
+        initialColor:str(widget.initial['avatar_color']).isEmpty?
+          'indigo':str(widget.initial['avatar_color']),
+        onSaved:(){}),
       gap(15),
       TextField(controller:name,maxLength:80,textCapitalization:TextCapitalization.words,
         decoration:const InputDecoration(labelText:'Display name')),
@@ -1952,9 +1989,7 @@ class _EditProfilePageState extends State<EditProfilePage>{
       const SizedBox(height:8),
       GeoAutocompleteField(controller:city,type:GeoFieldType.city,
         countryController:country),
-      const Padding(padding:EdgeInsets.symmetric(vertical:6),
-        child:Text('Place suggestions: GeoNames · CC BY 4.0 · offline.',
-          style:TextStyle(fontSize:11))),
+      const SizedBox(height:7),
       gap(18),
       FilledButton(onPressed:saving?null:() async{
         final handle=username.text.trim().toLowerCase();

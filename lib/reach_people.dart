@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'repository.dart';
+import 'reach_avatar.dart';
 
 /// People discovery is separate from offers/requests. Nobody is listed
 /// unless they explicitly opt in, and private profile details remain hidden
@@ -125,7 +126,9 @@ class _ReachPeoplePageState extends State<ReachPeoplePage> {
       padding:const EdgeInsets.all(15),child:Column(
       crossAxisAlignment:CrossAxisAlignment.start,children:[
         Row(children:[
-          CircleAvatar(child:Text(display.characters.first.toUpperCase())),
+          ReachAvatar(name:display,
+            path:person['avatar_path'] as String?,
+            color:person['avatar_color']?.toString()??'indigo',size:45),
           const SizedBox(width:10),
           Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
             children:[
@@ -133,6 +136,11 @@ class _ReachPeoplePageState extends State<ReachPeoplePage> {
                 fontWeight:FontWeight.w700)),
               if(username.isNotEmpty)Text('@$username',style:Theme.of(context).textTheme.bodySmall),
             ])),
+          IconButton(
+            tooltip:'View profile',
+            onPressed:()=>Navigator.push(context,MaterialPageRoute(
+              builder:(_)=>ReachMemberProfilePage(memberId:id))),
+            icon:const Icon(Icons.account_circle_outlined)),
           PopupMenuButton<String>(tooltip:'Member safety actions',
             onSelected:(v){if(v=='report')unawaited(report(person));
               if(v=='block')unawaited(block(person));},
@@ -171,9 +179,7 @@ class _ReachPeoplePageState extends State<ReachPeoplePage> {
     body:SafeArea(child:Column(children:[
       Padding(padding:const EdgeInsets.fromLTRB(17,7,17,11),
         child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text('People appear only if they enable discovery in their profile.',
-            style:Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height:13),
+          const SizedBox(height:5),
           TextField(controller:search,
             onChanged:(_){
               debounce?.cancel();
@@ -205,9 +211,7 @@ class _ReachPeoplePageState extends State<ReachPeoplePage> {
             const Text('No discoverable members match yet',
               textAlign:TextAlign.center),
             const SizedBox(height:9),
-            const Text('Your other device needs to be signed in to a separate '
-              'account, and that member must enable People discovery. '
-              'You can also try My country or a username search.',
+            const Text('Try another search or area.',
               textAlign:TextAlign.center),
           ]:people.map(personCard).toList(),
         ))),

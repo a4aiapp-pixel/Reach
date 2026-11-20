@@ -88,7 +88,7 @@ class ReachRepository {
 
   Future<List<Map<String,dynamic>>> discoverPeople({
       String area='city',String query=''}) async {
-    final result=await client.rpc('reach_discover_people',
+    final result=await client.rpc('reach_discover_people_v2',
       params:{'p_area':area,'p_query':query.trim()});
     return (result as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
   }
@@ -227,7 +227,7 @@ class ReachRepository {
       Map<String,dynamic>.from(r as Map))).toList();
   }
   Future<List<Map<String,dynamic>>> groupMembers(String id) async {
-    final data=await client.rpc('reach_group_members',params:{'p_circle':id});
+    final data=await client.rpc('reach_group_members_v2',params:{'p_circle':id});
     return (data as List).map((r)=>Map<String,dynamic>.from(r as Map)).toList();
   }
   Stream<List<Map<String,dynamic>>> groupMessages(String id)=>

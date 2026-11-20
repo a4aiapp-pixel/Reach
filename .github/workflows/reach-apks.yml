@@ -121,20 +121,20 @@ jobs:
         run: |
           flutter build apk --release --dart-define=ENABLE_REACH_CALLS=true --target-platform android-arm,android-arm64,android-x64
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/Reach-v1.2.0-universal-connected.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Reach-v1.3.0-universal-connected.apk
 
       - name: Build ABI-specific ARM64 release-mode APK
         run: |
           flutter build apk --release --dart-define=ENABLE_REACH_CALLS=true --split-per-abi
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Reach-v1.2.0-arm64-v8a-connected.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/Reach-v1.3.0-arm64-v8a-connected.apk
 
       - name: Integrity checks and artifact inventory
         run: |
-          test -s dist/Reach-v1.2.0-universal-connected.apk
-          test -s dist/Reach-v1.2.0-arm64-v8a-connected.apk
+          test -s dist/Reach-v1.3.0-universal-connected.apk
+          test -s dist/Reach-v1.3.0-arm64-v8a-connected.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
           cat > dist/README.txt <<'EOF'
-          REACH 1.2.0 - ANDROID RELEASE-CANDIDATE COMPILE
+          REACH 1.3.0 - ANDROID RELEASE-CANDIDATE COMPILE
           ==============================================
           UNIVERSAL: ARM32 + ARM64 + x86-64.
           ARM64: Android ARM64 devices only.
@@ -155,8 +155,8 @@ jobs:
           set -euo pipefail
           test -s assets/branding/reach_play_store_icon_512.png
           mkdir -p dist
-          cp assets/branding/reach_play_store_icon_512.png dist/Reach-v1.2.0-Play-Icon-512.png
-          file dist/Reach-v1.2.0-Play-Icon-512.png
+          cp assets/branding/reach_play_store_icon_512.png dist/Reach-v1.3.0-Play-Icon-512.png
+          file dist/Reach-v1.3.0-Play-Icon-512.png
 
       - name: Confirm live privacy and account-deletion policy URLs
         shell: bash
@@ -184,9 +184,9 @@ jobs:
           python3 tools/check_android_bundle.py \
             build/app/outputs/bundle/release/app-release.aab dist/PLAY-PERMISSION-AUDIT.json
           mkdir -p dist
-          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.2.0-signed-Play-INTERNAL-TEST.aab
-          sha256sum dist/Reach-v1.2.0-signed-Play-INTERNAL-TEST.aab > dist/PLAY-AAB-SHA256.txt
-          keytool -printcert -jarfile dist/Reach-v1.2.0-signed-Play-INTERNAL-TEST.aab \
+          cp build/app/outputs/bundle/release/app-release.aab dist/Reach-v1.3.0-signed-Play-INTERNAL-TEST.aab
+          sha256sum dist/Reach-v1.3.0-signed-Play-INTERNAL-TEST.aab > dist/PLAY-AAB-SHA256.txt
+          keytool -printcert -jarfile dist/Reach-v1.3.0-signed-Play-INTERNAL-TEST.aab \
             | grep -E 'Owner:|SHA256:|Signature algorithm name:' > dist/PLAY-SIGNING-INFO.txt
           cat dist/PLAY-SIGNING-INFO.txt
 
@@ -201,32 +201,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="reach-v1.2.0-qa-${GITHUB_SHA:0:10}"
+          tag="reach-v1.3.0-qa-${GITHUB_SHA:0:10}"
           for file in \
-            dist/Reach-v1.2.0-universal-connected.apk \
-            dist/Reach-v1.2.0-arm64-v8a-connected.apk \
-            dist/Reach-v1.2.0-signed-Play-INTERNAL-TEST.aab \
+            dist/Reach-v1.3.0-universal-connected.apk \
+            dist/Reach-v1.3.0-arm64-v8a-connected.apk \
+            dist/Reach-v1.3.0-signed-Play-INTERNAL-TEST.aab \
             dist/PLAY-PERMISSION-AUDIT.json \
             dist/PLAY-SIGNING-INFO.txt \
             dist/PLAY-AAB-SHA256.txt \
             dist/SHA256SUMS.txt \
             dist/README.txt \
-            dist/Reach-v1.2.0-Play-Icon-512.png; do
+            dist/Reach-v1.3.0-Play-Icon-512.png; do
             test -s "$file"
           done
           gh release create "$tag" \
-            dist/Reach-v1.2.0-universal-connected.apk \
-            dist/Reach-v1.2.0-arm64-v8a-connected.apk \
-            dist/Reach-v1.2.0-signed-Play-INTERNAL-TEST.aab \
+            dist/Reach-v1.3.0-universal-connected.apk \
+            dist/Reach-v1.3.0-arm64-v8a-connected.apk \
+            dist/Reach-v1.3.0-signed-Play-INTERNAL-TEST.aab \
             dist/PLAY-PERMISSION-AUDIT.json \
             dist/PLAY-SIGNING-INFO.txt \
             dist/PLAY-AAB-SHA256.txt \
             dist/SHA256SUMS.txt \
             dist/README.txt \
-            dist/Reach-v1.2.0-Play-Icon-512.png \
+            dist/Reach-v1.3.0-Play-Icon-512.png \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --prerelease \
-            --title "Reach v1.2.0 - signed internal QA (${GITHUB_SHA:0:10})" \
+            --title "Reach v1.3.0 - signed internal QA (${GITHUB_SHA:0:10})" \
             --notes "Internal testing candidate, NOT a verified Google Play production release. Includes ten redesigned Reach themes, separate universal/ARM64 APKs, persistent upload-key signed AAB, SHA-256 checksums, and Android permission audit. Two-account calling, discovery, moderation and real-device acceptance are still pending."
           echo "QA release: https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag"
           gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets \
