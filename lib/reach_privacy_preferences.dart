@@ -11,11 +11,12 @@ class ReachPrivacyPreferences extends StatefulWidget {
   const ReachPrivacyPreferences({
     super.key,required this.profile,required this.onChanged,
     required this.callingEnabled,required this.pushEnabled,
-    this.persistForTest,this.persistNearbyForTest,
+    this.persistForTest,this.persistNearbyForTest,this.visibleKeys,
   });
   final Map<String,dynamic> profile;
   final VoidCallback onChanged;
   final bool callingEnabled,pushEnabled;
+  final Set<String>? visibleKeys;
   /// Injected persistence paths allow deterministic offline/error regression tests.
   final Future<void> Function(String key,dynamic value)? persistForTest;
   final Future<void> Function(bool enabled)? persistNearbyForTest;
@@ -119,11 +120,38 @@ class _ReachPrivacyPreferencesState extends State<ReachPrivacyPreferences> {
     else await _update(key,next);
   }
 
+  bool _show(String key)=>widget.visibleKeys==null || widget.visibleKeys!.contains(key);
+
   Widget _icon(String key,IconData icon){
     if(savingKey==key)return const SizedBox(width:22,height:22,
       child:CircularProgressIndicator(strokeWidth:2));
     return Icon(icon);
   }
+
+  List<Widget> _groupControls()=>[
+
+        if(_show('allow_group_invites'))SwitchListTile.adaptive(
+          secondary:_icon('allow_group_invites',Icons.mail_outline),
+          title:const Text('Allow group invitations'),
+          value:values['allow_group_invites']!=false,
+          onChanged:savingKey==null?(v)=>unawaited(
+            _update('allow_group_invites',v)):null),
+        if(_show('allow_group_direct_add'))SwitchListTile.adaptive(
+          secondary:_icon('allow_group_direct_add',Icons.person_add_alt_1),
+          title:const Text('Allow direct group adding'),
+          subtitle:const Text('A group owner can add you without approval.'),
+          value:values['allow_group_direct_add']==true,
+          onChanged:savingKey==null?(v)=>unawaited(
+            _update('allow_group_direct_add',v)):null),
+        if(_show('allow_media_messages'))SwitchListTile.adaptive(
+          secondary:_icon('allow_media_messages',Icons.perm_media_outlined),
+          title:const Text('Allow private photos, audio & video'),
+          subtitle:const Text('Both people must allow media sharing.'),
+          value:values['allow_media_messages']==true,
+          onChanged:savingKey==null?(v)=>unawaited(
+            _update('allow_media_messages',v)):null),
+
+  ];
 
   @override Widget build(BuildContext context)=>Card(child:Column(children:[
     if(savingKey!=null)Padding(
@@ -154,7 +182,7 @@ class _ReachPrivacyPreferencesState extends State<ReachPrivacyPreferences> {
             label:const Text('Retry')),
         ]),
       ])),
-    SwitchListTile(
+    if(_show('people_discoverable'))SwitchListTile(
       secondary:_icon('people_discoverable',Icons.person_search_outlined),
       title:const Text('Appear in people search'),
       subtitle:const Text('Allow other members to find your name and city.'),
@@ -162,8 +190,8 @@ class _ReachPrivacyPreferencesState extends State<ReachPrivacyPreferences> {
       onChanged:savingKey==null
         ?(v)=>unawaited(_update('people_discoverable',v)):null,
     ),
-    const Divider(height:1),
-    ListTile(
+    if(widget.visibleKeys==null)const Divider(height:1),
+    if(_show('profile_visibility'))ListTile(
       leading:_icon('profile_visibility',Icons.manage_accounts_outlined),
       title:const Text('Profile visibility'),
       subtitle:const Text('Who can see your biography and skills.'),
@@ -178,8 +206,8 @@ class _ReachPrivacyPreferencesState extends State<ReachPrivacyPreferences> {
           if(v!=null)unawaited(_update('profile_visibility',v));
         }:null),
     ),
-    const Divider(height:1),
-    SwitchListTile(
+    if(widget.visibleKeys==null)const Divider(height:1),
+    if(_show('allow_calls'))SwitchListTile(
       secondary:_icon('allow_calls',Icons.call_outlined),
       title:const Text('Allow voice and video calls'),
       subtitle:Text(widget.callingEnabled
@@ -188,42 +216,26 @@ class _ReachPrivacyPreferencesState extends State<ReachPrivacyPreferences> {
       value:values['allow_calls']==true,
       onChanged:savingKey==null?(v)=>unawaited(_update('allow_calls',v)):null,
     ),
-    const Divider(height:1),
-    SwitchListTile(
+    if(widget.visibleKeys==null)const Divider(height:1),
+    if(_show('location_opt_in'))SwitchListTile(
       secondary:_icon('location_opt_in',Icons.location_on_outlined),
       title:const Text('Nearby discovery'),
       subtitle:const Text('Use an approximate location for nearby results.'),
       value:values['location_opt_in']==true,
       onChanged:savingKey==null?(v)=>unawaited(_nearby(v)):null,
     ),
-    const Divider(height:1),
-    ExpansionTile(
-      leading:const Icon(Icons.groups_2_outlined),
-      title:const Text('Group & media permissions'),
-      children:[
-        SwitchListTile.adaptive(
-          secondary:_icon('allow_group_invites',Icons.mail_outline),
-          title:const Text('Allow group invitations'),
-          value:values['allow_group_invites']!=false,
-          onChanged:savingKey==null?(v)=>unawaited(
-            _update('allow_group_invites',v)):null),
-        SwitchListTile.adaptive(
-          secondary:_icon('allow_group_direct_add',Icons.person_add_alt_1),
-          title:const Text('Allow direct group adding'),
-          subtitle:const Text('A group owner can add you without approval.'),
-          value:values['allow_group_direct_add']==true,
-          onChanged:savingKey==null?(v)=>unawaited(
-            _update('allow_group_direct_add',v)):null),
-        SwitchListTile.adaptive(
-          secondary:_icon('allow_media_messages',Icons.perm_media_outlined),
-          title:const Text('Allow private photos, audio & video'),
-          subtitle:const Text('Both people must allow media sharing.'),
-          value:values['allow_media_messages']==true,
-          onChanged:savingKey==null?(v)=>unawaited(
-            _update('allow_media_messages',v)):null),
-      ]),
-    const Divider(height:1),
-    SwitchListTile(
+    if(widget.visibleKeys==null)const Divider(height:1),
+    if(_show('allow_group_invites') || _show('allow_group_direct_add') ||
+        _show('allow_media_messages'))
+      if(widget.visibleKeys==null)
+        ExpansionTile(
+          leading:const Icon(Icons.groups_2_outlined),
+          title:const Text('Group & media permissions'),
+          children:_groupControls(),
+        )
+      else ..._groupControls(),
+    if(widget.visibleKeys==null)const Divider(height:1),
+    if(_show('notify_on'))SwitchListTile(
       secondary:_icon('notify_on',Icons.notifications_none),
       title:const Text('In-app activity alerts'),
       subtitle:Text(widget.pushEnabled

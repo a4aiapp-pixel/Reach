@@ -31,7 +31,7 @@ import 'geo_places.dart';
 import 'reach_permission_intro.dart';
 import 'reach_people.dart';
 import 'reach_age_gate.dart';
-import 'reach_privacy_preferences.dart';
+import 'reach_settings.dart';
 
 late final ReachRepository reach;
 // Categories and starter group templates are centralized in community_catalog.dart.
@@ -1821,122 +1821,95 @@ class ProfilePage extends StatelessWidget {
  const ProfilePage({super.key,required this.profile,required this.onChanged,
    required this.onTheme,required this.themeMode,required this.lookId,
    required this.onLook,required this.onMyReach});
- final Map<String,dynamic> profile;final VoidCallback onChanged;
- final ValueChanged<ThemeMode> onTheme;final ThemeMode themeMode;
- final String lookId;final ValueChanged<String> onLook;
- final VoidCallback onMyReach;
- @override Widget build(BuildContext context)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(18,16,18,45),children:[
-   ReachExperienceHeader(title:'My space',subtitle:'Your activity, privacy and settings',icon:Icons.account_circle_outlined),gap(12),
-   Card(child:Padding(padding:const EdgeInsets.all(20),child:Row(children:[
-     ReachAvatar(name:str(profile['display_name']),
-        path:profile['avatar_path'] as String?,
-        color:str(profile['avatar_color']),size:62),
-      const SizedBox(width:14),Expanded(child:Column(
-       crossAxisAlignment:CrossAxisAlignment.start,children:[
-         Text(str(profile['display_name']).isEmpty?'Reach member':str(profile['display_name']),
-           style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.bold)),
-         if(str(profile['username']).isNotEmpty) Text('@${profile['username']}'),
-         Text('${profile['city']}, ${profile['country']}'),
-         Text('Your space · your privacy',
-           style:Theme.of(context).textTheme.bodySmall)
-       ]))]))),gap(14),
-   Card(child:Column(children:[
-     ListTile(leading:const Icon(Icons.bolt_outlined),
-       title:const Text('My Reach and activity'),
-       subtitle:const Text('Manage your offers, requests and availability'),
-       trailing:const Icon(Icons.chevron_right),onTap:onMyReach),
-     const Divider(height:1),
-     ListTile(leading:const Icon(Icons.account_circle_outlined),
-       title:const Text('View profile'),trailing:const Icon(Icons.chevron_right),
-       onTap:()=>Navigator.push(context,MaterialPageRoute(
-         builder:(_)=>ReachMemberProfilePage(
-           memberId:str(profile['id']))))),
-     const Divider(height:1),
-     ListTile(leading:const Icon(Icons.edit_outlined),title:const Text('Edit profile and skills'),
-       subtitle:const Text('Username, name, biography, specialties and city'),
-       trailing:const Icon(Icons.chevron_right),
-       onTap:()async {
-         await Navigator.push(context,MaterialPageRoute(
-           builder:(_)=>EditProfilePage(initial:profile)));
-         onChanged();
-       }),
-   ])),gap(14),
-   ReachPrivacyPreferences(
-     profile:profile,
-     onChanged:onChanged,
-     callingEnabled:AppConfig.callingEnabled,
-     pushEnabled:ReachPush.enabled),gap(14),
-   Card(child:ListTile(
-     leading:const Icon(Icons.perm_media_outlined),
-     title:const Text('Storage & media downloads'),
-     trailing:const Icon(Icons.chevron_right),
-     onTap:()=>Navigator.push(context,MaterialPageRoute(
-       builder:(_)=>const ReachMediaSettingsPage())))),gap(12),
-   Card(child:Column(children:[
-     ListTile(leading:const Icon(Icons.palette_outlined),title:const Text('Appearance'),
-       subtitle:Text('Current: ${themeMode.name}'),trailing:DropdownButton<ThemeMode>(
-         underline:const SizedBox.shrink(),value:themeMode,
-         items:ThemeMode.values.map((e)=>DropdownMenuItem(value:e,child:Text(e.name))).toList(),
-         onChanged:(v){if(v!=null)onTheme(v);}),),
-     ListTile(
-         leading:const Icon(Icons.auto_awesome),
-         title:const Text('Reach Assist · Free'),
-         subtitle:const Text('Offline writing, safety and community tools · no AI charges'),
-         trailing:const Icon(Icons.chevron_right),
-         onTap:()=>Navigator.push(context,
-           MaterialPageRoute(builder:(_)=>const ReachAssistPage()))),
-     if(AppConfig.callingEnabled)
-       ListTile(
-         leading:const Icon(Icons.settings_voice_outlined),
-         title:const Text('Calling & network'),
-         subtitle:const Text('Adaptive quality, data saver and auto-reconnect'),
-         trailing:const Icon(Icons.chevron_right),
-         onTap:()=>Navigator.push(context,
-           MaterialPageRoute(builder:(_)=>const ReachCallSettingsPage()))),
-     ListTile(leading:const Icon(Icons.business_center_outlined),
-       title:const Text('Reach for Business'),
-       subtitle:const Text('Apply for a professional profile · no charges'),
-       trailing:const Icon(Icons.chevron_right),
-       onTap:()=>Navigator.push(context,
-         MaterialPageRoute(builder:(_)=>const ReachBusinessStudio()))),
-     const Divider(height:1),
-     ListTile(leading:const Icon(Icons.auto_awesome_outlined),
-       title:const Text('Design studio · 10 distinct layouts'),
-       subtitle:Text('Current: ${reachLookById(lookId).name} · navigation, feed, headers and typography'),
-       trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.push(context,
-         MaterialPageRoute(builder:(_)=>ReachThemeGallery(selected:lookId,onSelected:onLook)))),
-     const Divider(height:1),
-     ListTile(leading:const Icon(Icons.block_outlined),title:const Text('Blocked members'),
-       trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.push(context,
-         MaterialPageRoute(builder:(_)=>const BlockedPage()))),
-     const Divider(height:1),
-     ListTile(leading:const Icon(Icons.policy_outlined),
-       title:const Text('Privacy and community rules'),
-       subtitle:const Text('Review data practices and safety rules'),
-       trailing:const Icon(Icons.chevron_right),
-       onTap:()=>showReachLegalSummary(context)),
-     const Divider(height:1),
-     ListTile(leading:const Icon(Icons.support_agent_outlined),title:const Text('Reach support'),
-       subtitle:Text(AppConfig.supportEmail.isEmpty
-           ?'Questions, privacy or safety reports'
-           :AppConfig.supportEmail),
-       onTap:()=>launchUrl(
-         Uri.parse(AppConfig.supportEmail.isEmpty
-           ?'${AppConfig.legalBase}/contact.html'
-           :'mailto:${AppConfig.supportEmail}?subject=Reach%20Support'),
-         mode:LaunchMode.externalApplication)),
-   ])),gap(14),
-   Card(child:Column(children:[
-     ListTile(leading:const Icon(Icons.logout),title:const Text('Sign out'),
-       onTap:()=>busy(context,reach.signOut)),
-     const Divider(height:1),
-     ListTile(leading:const Icon(Icons.delete_forever_outlined,color:Colors.red),
-       title:const Text('Delete my account',style:TextStyle(color:Colors.red)),
-       subtitle:const Text('Permanently erase your account, posts and chats'),
-       onTap:()=>deleteAccountFlow(context)),
-   ])),gap(18),Center(child:Text('Reach 1.3.0 · Connect & create',
-      style:Theme.of(context).textTheme.labelSmall)),
- ]));
+ final Map<String,dynamic> profile;
+ final VoidCallback onChanged,onMyReach;
+ final ValueChanged<ThemeMode> onTheme;
+ final ThemeMode themeMode;
+ final String lookId;
+ final ValueChanged<String> onLook;
+
+ void openSettings(BuildContext context,{ReachSettingsArea? section}){
+   final actions=ReachSettingsActions(
+     viewProfile:()=>Navigator.push(context,MaterialPageRoute(
+       builder:(_)=>ReachMemberProfilePage(memberId:str(profile['id'])))),
+     editProfile:()async{
+       await Navigator.push(context,MaterialPageRoute(
+         builder:(_)=>EditProfilePage(initial:profile)));
+       onChanged();
+     },
+     manageGroups:()=>Navigator.push(context,MaterialPageRoute(
+       builder:(_)=>const CirclesPage())),
+     blockedMembers:()=>Navigator.push(context,MaterialPageRoute(
+       builder:(_)=>const BlockedPage())),
+     business:()=>Navigator.push(context,MaterialPageRoute(
+       builder:(_)=>const ReachBusinessStudio())),
+     assist:()=>Navigator.push(context,MaterialPageRoute(
+       builder:(_)=>const ReachAssistPage())),
+     legal:()=>showReachLegalSummary(context),
+     support:()=>unawaited(launchUrl(Uri.parse(
+       AppConfig.supportEmail.isEmpty
+         ?'${AppConfig.legalBase}/contact.html'
+         :'mailto:${AppConfig.supportEmail}?subject=Reach%20Support'),
+       mode:LaunchMode.externalApplication)),
+     signOut:()=>unawaited(busy(context,reach.signOut)),
+     deleteAccount:()=>unawaited(deleteAccountFlow(context)),
+   );
+   Navigator.push(context,MaterialPageRoute(
+     builder:(_)=>ReachSettingsHub(
+       initialSection:section,profile:profile,
+       onProfileChanged:onChanged,actions:actions,
+       themeMode:themeMode,onTheme:onTheme,
+       lookId:lookId,onLook:onLook,
+       callingEnabled:AppConfig.callingEnabled,
+       pushEnabled:ReachPush.enabled),
+   ));
+ }
+
+ @override Widget build(BuildContext context){
+   final name=str(profile['display_name']).isEmpty
+      ?'Reach member':str(profile['display_name']);
+   final username=str(profile['username']);
+   return SafeArea(child:ListView(
+     padding:const EdgeInsets.fromLTRB(16,14,16,45),children:[
+       ReachExperienceHeader(
+         title:'Me',subtitle:'Your Reach, your way',
+         icon:Icons.account_circle_outlined,
+         actions:IconButton(tooltip:'Settings',
+           onPressed:()=>openSettings(context),
+           icon:const Icon(Icons.settings_outlined))),
+       const SizedBox(height:14),
+       Card(child:ListTile(
+         key:const ValueKey('me-profile'),
+         contentPadding:const EdgeInsets.symmetric(horizontal:17,vertical:10),
+         leading:ReachAvatar(name:name,
+           path:profile['avatar_path'] as String?,
+           color:str(profile['avatar_color']),size:60),
+         title:Text(name,
+           style:Theme.of(context).textTheme.titleMedium?.copyWith(
+             fontWeight:FontWeight.w800)),
+         subtitle:username.isEmpty
+           ?const Text('Profile')
+           :Text('@$username',maxLines:1,overflow:TextOverflow.ellipsis),
+         trailing:const Icon(Icons.chevron_right_rounded),
+         onTap:()=>openSettings(context,section:ReachSettingsArea.profile))),
+       const SizedBox(height:11),
+       Card(child:Column(children:[
+         ListTile(
+           key:const ValueKey('me-activity'),
+           leading:const Icon(Icons.bolt_outlined),
+           title:const Text('My Reach & activity'),
+           trailing:const Icon(Icons.chevron_right_rounded),
+           onTap:onMyReach),
+         const Divider(height:1),
+         ListTile(
+           key:const ValueKey('me-settings'),
+           leading:const Icon(Icons.tune_rounded),
+           title:const Text('Settings'),
+           trailing:const Icon(Icons.chevron_right_rounded),
+           onTap:()=>openSettings(context)),
+       ])),
+     ]));
+ }
 }
 
 class EditProfilePage extends StatefulWidget {

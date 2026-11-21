@@ -16,6 +16,7 @@ Widget screen({
   required Future<void> Function(String,dynamic) save,
   Future<void> Function(bool)? saveNearby,
   VoidCallback? changed,
+  Set<String>? visibleKeys,
 })=>MaterialApp(home:Scaffold(body:SingleChildScrollView(
   child:ReachPrivacyPreferences(
     profile:privateProfile(),
@@ -24,6 +25,7 @@ Widget screen({
     pushEnabled:false,
     persistForTest:save,
     persistNearbyForTest:saveNearby,
+    visibleKeys:visibleKeys,
   ))));
 
 void main(){
@@ -75,4 +77,30 @@ void main(){
     expect(tester.widget<SwitchListTile>(switches.first).value,true);
     expect(find.text('Retry'),findsNothing);
   });
+  testWidgets('Scoped group settings do not repeat unrelated controls',
+    (tester)async{
+    final saved=<String>[];
+    await tester.pumpWidget(screen(
+      visibleKeys:const {'allow_group_invites','allow_group_direct_add'},
+      save:(key,value)async{saved.add('$key=$value');},
+    ));
+    expect(find.text('Allow group invitations'),findsOneWidget);
+    expect(find.text('Allow direct group adding'),findsOneWidget);
+    expect(find.text('Group & media permissions'),findsNothing);
+    expect(find.text('Allow voice and video calls'),findsNothing);
+    expect(find.text('Profile visibility'),findsNothing);
+    await tester.tap(find.text('Allow direct group adding'));
+    await tester.pump();
+    expect(saved,['allow_group_direct_add=true']);
+  });
+
+  testWidgets('Scoped call settings keep call consent easy to find',
+    (tester)async{
+    await tester.pumpWidget(screen(
+      visibleKeys:const {'allow_calls'},save:(_,__)async{}));
+    expect(find.text('Allow voice and video calls'),findsOneWidget);
+    expect(find.text('Appear in people search'),findsNothing);
+    expect(find.text('Allow group invitations'),findsNothing);
+  });
+
 }
